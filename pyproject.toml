@@ -11,6 +11,7 @@ packages = [{include = "tess_sim"}]
 python = "^3.8"
 numpy = ">1.20.1"
 lightkurve = "^2.3.0"
+pytest = "^7.2.1"
 
 [tool.poetry.group.dev.dependencies]
 numpy = ">1.20.1"
