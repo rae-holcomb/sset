@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "tess-sim"
+version = "0.1.0"
+description = "A tool for generating simulated cut outs of TESS target pixel files."
+authors = ["rae-holcomb <raeholcomb15@gmail.com>"]
+license = "MIT License"
+readme = "README.md"
+packages = [{include = "tess_sim"}]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+numpy = ">1.20.1"
+lightkurve = "^2.3.0"
+
+[tool.poetry.group.dev.dependencies]
+numpy = ">1.20.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
