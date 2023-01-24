@@ -1,3 +1,6 @@
+# Data that should not be part of the package, but I use locally in development
+local_data/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
