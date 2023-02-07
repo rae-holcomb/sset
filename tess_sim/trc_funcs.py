@@ -208,7 +208,7 @@ def fit_bkg(tpf: lk.TessTargetPixelFile, polyorder: int = 1) -> np.ndarray:
     return model
 
 
-def generate_basic_field(tpf_cutout, source_cat, plot=False):
+def generate_point_field(tpf_cutout, source_cat, plot=False):
     """Given a source catalog and tpf_cutout, generates a field with point sources. Currently is very jank and just proof of concept. The list of sources in read in and then the single pixel nearest their location is given a value weighed by 16-Tmag. The plot keyword will plot the tpf_cutout and the basic field, rotated so that they hopefully line up.
 
     Known issues:
@@ -242,7 +242,7 @@ def generate_basic_field(tpf_cutout, source_cat, plot=False):
 
 def generate_signal(time):
     """Swappable rotation/other signal-generating code. Should always return [time, flux]"""
-    return np.sin(time)
+    return np.sin(time) + 1
 
 
 def get_prf():
@@ -261,7 +261,7 @@ def add_source_noise():
 
 
 def add_bkg_noise():
-    """Add reasonable noise to the backgroun pixels."""
+    """Add reasonable noise to the background pixels."""
     return
 
 
