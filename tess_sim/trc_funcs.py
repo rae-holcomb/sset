@@ -3,6 +3,8 @@ import numpy as np
 import lightkurve as lk
 import math
 import matplotlib.pyplot as plt
+import copy
+
 
 from astroquery.mast import Catalogs
 import astropy.units as u
