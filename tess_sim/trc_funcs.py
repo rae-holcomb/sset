@@ -5,6 +5,8 @@ import math
 import matplotlib.pyplot as plt
 import copy
 
+import PRF
+
 
 from astroquery.mast import Catalogs
 import astropy.units as u
