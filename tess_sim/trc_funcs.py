@@ -12,6 +12,7 @@ from astroquery.mast import Catalogs
 import astropy.units as u
 import astropy.wcs as wcs
 from astropy.stats import sigma_clip
+from scipy import ndimage
 
 # helper functions
 
@@ -198,7 +199,7 @@ def fit_bkg(tpf: lk.TessTargetPixelFile, polyorder: int = 1) -> np.ndarray:
             .reshape((tpf.shape[1], tpf.shape[2], tpf.shape[0]))
             .transpose([2, 0, 1])
         )
-        model += bkg0
+        # model += bkg0
         return model
 
     # Break point for TESS orbit
