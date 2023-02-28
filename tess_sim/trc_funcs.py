@@ -12,18 +12,25 @@ from astroquery.mast import Catalogs
 import astropy.units as u
 import astropy.wcs as wcs
 from astropy.stats import sigma_clip
+import astropy.table
 from scipy import ndimage
+
+import field as Field
 
 # helper functions
 
 
 def roundup(x, pow=0):
-    """Rounds up to the nearest power of ten, given by pow."""
+    """
+    Rounds up to the nearest power of ten, given by pow.
+    """
     return int(math.ceil(x / (10 ** (pow)))) * (10 ** (pow))
 
 
 def pixels_to_radius(cutout_size, pow=-2, round=True):
-    """Given the side length of a cut out in pixels, converts it to the radius of a cone search in degrees, rounded up to the nearest `pow` power of 10. Use round to turn on/off the rounding up feature."""
+    """
+    Given the side length of a cut out in pixels, converts it to the radius of a cone search in degrees, rounded up to the nearest `pow` power of 10. Use round to turn on/off the rounding up feature.
+    """
     if round:
         return roundup(cutout_size / np.sqrt(2) * 21 / 3600, pow=pow)
     else:
