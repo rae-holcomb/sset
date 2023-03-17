@@ -19,6 +19,13 @@ import field as Field
 
 # helper functions
 
+def forward_fill(arr):
+    """Forward fills nan values in an array."""
+    out = arr.copy()
+    for col_idx in range(1, len(out)):
+        if np.isnan(out[col_idx]):
+            out[col_idx] = out[col_idx - 1]
+    return out
 
 def roundup(x, pow=0):
     """
@@ -250,6 +257,15 @@ def generate_point_field(tpf_cutout, source_cat, plot=False):
         tpf_cutout.plot()
 
     return field
+
+def toy_diff_velocity_aberration(time, amp1, amp2):
+    """Calculates a toy model of the differential velocity abberation in pixels on the CCD over a period of time. Orbits are currently assumed to be 14 days, and start at the beginning of the time stamp. This may be modified later to be more realistic.
+    
+    Returns the position drift in units of pixels as [x_diff, y_diff]. Inputs are the time array and the amplitude of the drift along the x and y directions."""
+    orbit_per = 14
+    x_diff = amp1 * np.sin( np.pi / (orbit_per) * (time - time[0]) )**2
+    y_diff = amp2 * np.sin( np.pi / (orbit_per) * (time - time[0]) )**2
+    return x_diff, y_diff
 
 
 def generate_signal(time):
