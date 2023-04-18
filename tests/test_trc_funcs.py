@@ -47,6 +47,6 @@ def generate_basic_field_test():
     assert True
 
 def flux_mag_converstion_test():
-    assert(trc.mag_to_flux(12), trc.mag_to_flux(14))
-    assert(trc.flux_to_mag(1.74e5), trc.flux_to_mag(27577))
-
+    """Test that converting from mag to flux and back keeps things consistent."""
+    tmag1 = 10
+    assert(tmag == trc.flux_to_mag(trc.mag_to_flux(10)))

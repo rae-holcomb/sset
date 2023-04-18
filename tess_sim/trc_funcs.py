@@ -52,17 +52,45 @@ def pix_to_degrees(pix):
     return pix * 21.0 / 3600
 
 
-def flux_to_mag(flux, reference_flux=1.74e5):
-    """NOTE: ref mag is a place holder from kepler right now!"""
-    kepmag = 12 - 2.5 * np.log10(flux / reference_flux)
-    return kepmag
+def flux_to_mag(flux, reference_mag=20.44):
+    """Converts a TESS magnitude to a flux in e-/s. The TESS reference magnitude is taken to be 20.44. If needed, the Kepler reference flux is 1.74e5 electrons/sec.
+    
+    Parameters
+    ----------
+    flux : float
+        The total flux of the target on the CCD in electrons/sec.
+    reference_mag: int
+        The zeropoint reference magnitude for TESS. Typically 20.44 +/-0.05.
+    reference_mag: float
+
+    Returns
+    -------
+    Tmag: float
+        TESS magnitude of the target.
+    
+    """
+    # kepler_mag = 12 - 2.5 * np.log10(flux / reference_flux)
+    mag = -2.5 * np.log10(flux) + reference_mag
+    return mag
 
 
-def mag_to_flux(mag, reference_flux=1.74e5):
-    """NOTE: ref mag is a place holder from kepler right now!"""
-    fkep = (10.0 ** (-0.4 * (mag - 12.0))) * reference_flux
-    # f12 = 1.74e5 # electrons/sec
-    return fkep
+def mag_to_flux(Tmag, reference_mag=20.44):
+    """Converts a TESS magnitude to a flux in e-/s. The TESS reference magnitude is taken to be 20.44. If needed, the Kepler reference flux is 1.74e5 electrons/sec.
+    
+    Parameters
+    ----------
+    Tmag: float
+        TESS magnitude of the target.
+    reference_mag: int
+        The zeropoint reference magnitude for TESS. Typically 20.44 +/-0.05.
+
+    Returns
+    -------
+    flux : float
+        The total flux of the target on the CCD in electrons/sec.
+    """
+    # fkep = (10.0 ** (-0.4 * (mag - 12.0))) * 
+    return 10 ** (-(Tmag - reference_mag)/2.5)
 
 def mag_to_flux_fake(mag):
     """A fake function for converting magnitudes to flux, just for development purposes. Don't use for anything dimmer than 16th mag!"""
