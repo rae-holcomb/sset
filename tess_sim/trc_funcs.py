@@ -11,6 +11,7 @@ import PRF
 from astroquery.mast import Catalogs
 import astropy.units as u
 import astropy.wcs as wcs
+from scipy import stats
 from astropy.stats import sigma_clip
 import astropy.table
 from scipy import ndimage
@@ -20,11 +21,19 @@ import field as Field
 # helper functions
 
 def forward_fill(arr):
-    """Forward fills nan values in an array."""
+    """Backward fills nan values in an array."""
     out = arr.copy()
     for col_idx in range(1, len(out)):
         if np.isnan(out[col_idx]):
             out[col_idx] = out[col_idx - 1]
+    return out
+
+def backward_fill(arr):
+    """Forward fills nan values in an array."""
+    out = arr.copy()
+    for col_idx in range(len(out)-2, -1, -1):
+        if np.isnan(out[col_idx]):
+            out[col_idx] = out[col_idx + 1]
     return out
 
 def roundup(x, pow=0):
