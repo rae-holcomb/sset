@@ -2,6 +2,7 @@ import numpy as np
 import lightkurve as lk
 import math
 import trc_funcs as trc
+from scipy import stats
 
 # FIX THESE AND MAKE THEM REAL TESTS LATER
 
@@ -49,4 +50,18 @@ def generate_basic_field_test():
 def flux_mag_converstion_test():
     """Test that converting from mag to flux and back keeps things consistent."""
     tmag1 = 10
-    assert(tmag == trc.flux_to_mag(trc.mag_to_flux(10)))
+    assert(tmag1 == trc.flux_to_mag(trc.mag_to_flux(10)))
+
+def convert_to_distribution_test():
+    # check that the types come out right
+    assert(isinstance(convert_to_distribution_test(10), stats.rv_continuous))
+    assert(isinstance(convert_to_distribution_test(12.3), stats.rv_continuous))
+    assert(isinstance(convert_to_distribution_test(stats.norm(loc=1, scale=3)), stats.rv_continuous))
+
+    # check that the numbers come out right
+    a = -1.2
+    b = 300
+    assert(convert_to_distribution(a).rvs() == a)
+    assert(convert_to_distribution(b).rvs() == b)
+
+    

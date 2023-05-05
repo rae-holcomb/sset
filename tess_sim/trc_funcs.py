@@ -4,6 +4,7 @@ import lightkurve as lk
 import math
 import matplotlib.pyplot as plt
 import copy
+import typing 
 
 import PRF
 
@@ -129,6 +130,13 @@ def makeGaussian(size_x, size_y, fwhm=1, center=None):
     arr = np.exp(-4 * np.log(2) * ((x - x0) ** 2 + (y - y0) ** 2) / fwhm**2)
     return arr
 
+def convert_to_distribution(input: typing.Union[float, stats.rv_continuous]) -> stats.rv_continuous:
+    """Converts a float to a stats.rv_continuous object."""
+    # logic to recast float to dist if necessary
+    if isinstance(input, (float, int)):
+        return stats.uniform(loc=input, scale=0)
+    else:
+        return input
 
 # Goddard work
 
