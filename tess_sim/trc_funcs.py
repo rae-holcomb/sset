@@ -143,7 +143,8 @@ def convert_to_distribution(input: typing.Union[float, stats.rv_continuous]) -> 
 
 def set_seed():
     """Set seed for all processes."""
-    return
+    raise NotImplementedError
+    # return
 
 
 def get_cutout(target, cutout_size=20, sector=None):
