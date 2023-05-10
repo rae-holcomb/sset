@@ -263,14 +263,14 @@ class EclipsingBinaryTSGenerator(TSGenerator):
         """
         self.name = name
         self.params = {
-            'radius_1': ,
-            'radius_2': ,
-            'incl':  ,
-            'ecc': ,
-            'om': ,
-            'period': ,
-            'sbratio': ,
-            't_zero': 
+            'radius_1': 0.09992 ,
+            'radius_2': 0.19726,
+            'incl': stats.uniform(loc=85, scale=5),
+            'ecc': MixtureModel([stats.truncexpon(b=5, scale=.1), stats.truncnorm(loc=0, scale=.3, a=0, b=5/3)]),
+            'om': MixtureModel([stats.uniform(loc=0, scale=0.0), stats.uniform(loc=np.pi, scale=0.0)]),  # choose positive or negative phase
+            'period': stats.lognorm(s=1., loc=.3, scale=4),
+            'sbratio': MixtureModel([stats.uniform(loc=1.2, scale=.8), stats.uniform(loc=1.2, scale=.8), stats.truncnorm(loc=2, scale=.12, a=-5, b=0)]),
+            't_zero': stats.uniform(loc=0, scale=1)   # uniform in phase space
         }
         
         
