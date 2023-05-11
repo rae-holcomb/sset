@@ -153,7 +153,7 @@ class TSGenerator():
 
 
 # class FunctionSelector:
-class FunctionSelector:
+class FunctionSelector():
     """Used to select what functions get inputed.
     TO DO: restrict function input types."""
     # def __init__(self, generators: typing.List[typing.Tuple[TSGenerator, float]] = None):
@@ -267,9 +267,9 @@ class EclipsingBinaryTSGenerator(TSGenerator):
         """
         self.name = name
         self.params = {
-            'radius_1': 0.09992 ,
-            'radius_2': 0.19726,
-            'incl': stats.uniform(loc=85, scale=5),
+            'radius_1': stats.uniform(loc=.05, scale=.2),
+            'radius_2': stats.uniform(loc=.05, scale=.2),
+            'incl': stats.uniform(loc=80, scale=10),
             'ecc': MixtureModel([stats.truncexpon(b=5, scale=.1), stats.truncnorm(loc=0, scale=.3, a=0, b=5/3)]),
             'om': MixtureModel([stats.uniform(loc=0, scale=0.0), stats.uniform(loc=np.pi, scale=0.0)]),  # choose positive or negative phase
             'period': stats.lognorm(s=1., loc=.3, scale=4),
