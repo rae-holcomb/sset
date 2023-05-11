@@ -54,16 +54,16 @@ class MixtureModel(stats.rv_continuous):
 class TSGenerator():
     """A generic class that generates a signal in a light curve."""
 
-    def __init__(self, name, params:typing.Dict[str,stats.rv_continuous]={}) -> None:
+    def __init__(self, name, params:dict[str,stats.rv_continuous|float]={}) -> None:
         # define each arg distribution in the definition
         # func needs to be in the format func(time, **kwargs)
         # name must be a string
         self.name = name
         self.params = params.copy()
 
-        # loop through and convert floats to distributions as needed
-        for key, value in params.items():
-            self.params[key] = trc.convert_to_distribution(value)
+        # # loop through and convert floats to distributions as needed
+        # for key, value in params.items():
+        #     self.params[key] = trc.convert_to_distribution(value)
 
         # # loop through and assign the parameters to class variables
         # for key, value in params.items():
@@ -107,7 +107,7 @@ class TSGenerator():
     def __iter__(self, key):
         return self.__dict__[key]
 
-    def update_param(self, name:str, distr: stats.rv_continuous) -> None:
+    def update_param(self, name:str, distr: stats.rv_continuous|float) -> None:
         """Update or add a distribution for a particular parameter. Must be a [input format here]."""
         setattr(self, name, distr)
         pass
@@ -120,17 +120,20 @@ class TSGenerator():
     def plot_parameter(self, name:str) -> None:
         raise NotImplementedError
 
-    def sample(self) -> typing.Dict:
+    def sample(self) -> dict[str, float]:
         """Pulls a value from each parameter distribution."""
         # iterate over the parameters and pull one value from each distribution
         param_values = self.params.copy()
         # del param_values['name']
         # del param_values['params']
         for key, distr in param_values.items():
-            param_values[key] = distr.rvs()
+            if isinstance(distr, (float, int)):
+                param_values[key] = distr
+            else:
+                param_values[key] = distr.rvs()
         return param_values
 
-    def generate_signal(self, time, **kwargs) -> typing.Tuple[np.ndarray, typing.Dict] :
+    def generate_signal(self, time:np.ndarray, **kwargs) -> tuple[np.ndarray, dict[str,float]] :
         """To be supplied by the user. Must take time as a positional argument, and return a tuple containing the flux array as the first argument and a dictionary with the selected parameter values as the second."""
         raise NotImplementedError
 
@@ -153,7 +156,8 @@ class TSGenerator():
 class FunctionSelector:
     """Used to select what functions get inputed.
     TO DO: restrict function input types."""
-    def __init__(self, generators: typing.List[typing.Tuple[TSGenerator, float]] = None):
+    # def __init__(self, generators: typing.List[typing.Tuple[TSGenerator, float]] = None):
+    def __init__(self, generators: list[tuple[TSGenerator, float]] = None):
         self.generators = {}
         self.weights = {}
         
@@ -169,7 +173,7 @@ class FunctionSelector:
             output += 'Name: ' + key + ', Weight: ' + str(self.weights[key]) + '\n'
         return output
     
-    def print_verbose() -> str:
+    def print_verbose(self) -> str:
         """Prints out a long version, with all the functions and their kwargs listed."""
         raise NotImplementedError
         pass
@@ -195,7 +199,7 @@ class FunctionSelector:
         selected_key = random.choices(keys, weights=[self.weights[key] for key in keys], k=10)
         return selected_key
     
-    def instantiate_function(self, time:np.ndarray) -> [np.ndarray, typing.Dict]:
+    def instantiate_function(self, time:np.ndarray) -> list[np.ndarray, dict]:
         """Add."""
         # pick what type of function
         selected_key = self.select_generator()
@@ -210,7 +214,7 @@ class FunctionSelector:
 
 # subclass from TSGenerator
 class SineTSGenerator(TSGenerator):
-    def __init__(self, name, params:typing.Dict[str,stats.rv_continuous]={'A':1, 'B':1, 'C':0, 'D':0}) -> None:
+    def __init__(self, name, params:dict[str,stats.rv_continuous|float]={'A':1, 'B':1, 'C':0, 'D':0}) -> None:
         # define each arg distribution in the definition
         # func needs to be in the format func(time, **kwargs)
         # name must be a string
@@ -241,7 +245,7 @@ class SineTSGenerator(TSGenerator):
     #     self.D = trc.convert_to_distribution(D)
 
 
-    def generate_signal(self, time) -> np.ndarray:
+    def generate_signal(self, time:np.ndarray) -> np.ndarray:
         """....size time"""
         return self.A.rvs() * np.sin(self.B.rvs()*(time+self.C.rvs()) + self.D.rvs())
         # return np.sin(self.A.sample() * time) + self.offset.sample()
@@ -251,7 +255,7 @@ class SineTSGenerator(TSGenerator):
 
 
 class EclipsingBinaryTSGenerator(TSGenerator):
-    def __init__(self, name, params:typing.Dict[str,stats.rv_continuous]={}) -> None:
+    def __init__(self, name, params:dict[str,stats.rv_continuous|float]={}) -> None:
         """
         Eclipsing Binary using the ellc package. Has several parameter distributions set by default, as noted below. Only use the params input to modify from this default.
 
@@ -273,23 +277,20 @@ class EclipsingBinaryTSGenerator(TSGenerator):
             't_zero': stats.uniform(loc=0, scale=1)   # uniform in phase space
         }
         
-        
-        params.copy()
-
         # loop through and assign the parameters to class variables
         for key, value in params.items():
             self.params[key] = trc.convert_to_distribution(value)
-            setattr(self, key, trc.convert_to_distribution(value))
+            # setattr(self, key, trc.convert_to_distribution(value))
         pass
 
     def __repr__(self):
         return "EclipsingBinaryTSGenerator"
         
-    def generate_signal(self, time, param_values=None) -> np.ndarray:
+    def generate_signal(self, time:np.ndarray, param_values:dict[str,stats.rv_continuous|float]=None) -> np.ndarray:
         """Add."""
         if param_values is None:
             # sample the distributions
-            param_values = self.sample(self.params)
+            param_values = self.sample()
 
         # calculate f_c, f_s, and any other calculable values
         ecc = param_values['ecc']
