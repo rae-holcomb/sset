@@ -64,4 +64,10 @@ def convert_to_distribution_test():
     assert(convert_to_distribution(a).rvs() == a)
     assert(convert_to_distribution(b).rvs() == b)
 
-    
+def convert_aperture_mask():
+    # test to make sure the output has the mask in the right place
+    # add test for non-square TPFs or mismatched shapes
+    # also test convert_array
+    raise NotImplementedError
+
+
