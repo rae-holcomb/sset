@@ -176,6 +176,72 @@ def get_catalog(target, cutout_size=20, Tmag_cutoff=16):
     catalog = catalog_data[catalog_data["Tmag"] < Tmag_cutoff]
     return catalog
 
+def convert_array(arr, position, new_shape, new_position=None):
+    """"Converts the size of a 2D boolean mask, given absolute positions on some larger grid of the old mask and the new mask.
+    
+    Parameters
+    ----------
+    arr : ndarray
+        2D boolean mask.
+    position : tuple
+        Absolute position of the original array on some larger grid.
+    new_shape : tuple
+        Shape of the new boolean mask
+    new_position : tuple
+        Absolute position of the new array on some larger grid.
+
+    Returns
+    -------
+    result : ndarray
+        Converted 2D boolean mask.
+    """
+    # extract positions and sizes for easy reference
+    a1, b1 = len(arr), len(arr[0])
+    x1, y1 = position
+    a2, b2 = new_shape
+    
+    if new_position is None:
+        x2, y2 = x1 - a1//2, y1 - b1//2
+    else:
+        x2, y2 = new_position
+    
+    # relative positions
+    dx = x1 - x2
+    dy = y1 - y2
+
+    # set the default values to false
+    larger_array = [[False] * b2 for _ in range(a2)]
+    
+    # loop through and update
+    for i in range(a1):
+        for j in range(b1):
+            new_i = dx + i
+            new_j = dy + j
+            if 0 <= new_i < a2 and 0 <= new_j < b2:
+                larger_array[new_i][new_j] = arr[i][j]
+    
+    return np.array(larger_array)
+
+def convert_aperture_mask(pipeline_tpf, larger_tpf):
+    """"Takes the pipeline aperture mask from a TPF and converts it to fit a larger sized TPF cutout.
+    
+    Parameters
+    ----------
+    pipeline_tpf : lk.TessTargetPixelFile
+        A target pixel file which has a pipeline aperture mask.
+    larger_tpf : lk.TessTargetPixelFile
+        A larger targetpixel file (such as one obtained from TESScut) which you want to apply the aperture mask to.
+    
+    Returns
+    -------
+    result : ndarray
+        Converted 2D boolean mask.
+    """
+    arr = pipeline_tpf.pipeline_mask
+    position = (pipeline_tpf.row, pipeline_tpf.column)
+    new_shape = larger_tpf.pipeline_mask.shape
+    new_position = (larger_tpf.row, larger_tpf.column)
+    return convert_array(arr, position, new_shape, new_position)
 
 def estimate_bkg_OLD(tpf_cutout, source_cat):
     """Given a real TESS cut out and associated sources, masks the sources and fits a low order polynomial to estimate a model for the background. Should return an array the same shape as the input tpf_cutous"""
