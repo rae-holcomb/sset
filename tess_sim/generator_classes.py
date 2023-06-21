@@ -54,7 +54,7 @@ class MixtureModel(stats.rv_continuous):
 class TSGenerator():
     """A generic class that generates a signal in a light curve."""
 
-    def __init__(self, name, params:dict[str,stats.rv_continuous|float]={}) -> None:
+    def __init__(self, name, params:typing.Dict[str,stats.rv_continuous]={}) -> None:
         # define each arg distribution in the definition
         # func needs to be in the format func(time, **kwargs)
         # name must be a string
@@ -69,16 +69,6 @@ class TSGenerator():
         # for key, value in params.items():
         #     setattr(self, key, trc.convert_to_distribution(value))
         pass
-
-    # def __post_init__(self) -> None:
-    #     print('post init')
-    #     pass
-    #     """Loop through and convert all attributes to distributions.
-    #     This isn't getting called for some reason and I can't figure out why."""
-    #     print('__post_init__')
-    #     for key, value in self.params.items():
-    #         self.setattr(self, key, trc.convert_to_distribution(value))
-    #     # pass
 
     def __str__(self) -> str:
         # print out a summary of the args and their distributions
@@ -107,7 +97,7 @@ class TSGenerator():
     def __iter__(self, key):
         return self.__dict__[key]
 
-    def update_param(self, name:str, distr: stats.rv_continuous|float) -> None:
+    def update_param(self, name:str, distr: stats.rv_continuous) -> None:
         """Update or add a distribution for a particular parameter. Must be a [input format here]."""
         setattr(self, name, distr)
         pass
@@ -120,7 +110,7 @@ class TSGenerator():
     def plot_parameter(self, name:str) -> None:
         raise NotImplementedError
 
-    def sample(self) -> dict[str, float]:
+    def sample(self) -> typing.Dict[str, float]:
         """Pulls a value from each parameter distribution."""
         # iterate over the parameters and pull one value from each distribution
         param_values = self.params.copy()
@@ -214,7 +204,7 @@ class FunctionSelector():
 
 # subclass from TSGenerator
 class SineTSGenerator(TSGenerator):
-    def __init__(self, name, params:dict[str,stats.rv_continuous|float]={'A':1, 'B':1, 'C':0, 'D':0}) -> None:
+    def __init__(self, name, params:typing.Dict[str,stats.rv_continuous|float]={'A':1, 'B':1, 'C':0, 'D':0}) -> None:
         # define each arg distribution in the definition
         # func needs to be in the format func(time, **kwargs)
         # name must be a string
@@ -226,25 +216,6 @@ class SineTSGenerator(TSGenerator):
             setattr(self, key, trc.convert_to_distribution(value))
         pass
 
-
-    # def __post_init__(self, A:stats.rv_continuous=1, B:stats.rv_continuous=1, C:stats.rv_continuous=0, D:stats.rv_continuous=0) -> None:
-    #     """
-    #     Sine function of the form y = A * sin(B(x+C) + D).
-
-    #     Parameters
-    #     ----------
-
-    #     A: stats.Normal
-    #     B:
-    #     C:
-    #     D:  
-    #     """
-    #     self.A = trc.convert_to_distribution(A)
-    #     self.B = trc.convert_to_distribution(B)
-    #     self.C = trc.convert_to_distribution(C)
-    #     self.D = trc.convert_to_distribution(D)
-
-
     def generate_signal(self, time:np.ndarray) -> np.ndarray:
         """....size time"""
         return self.A.rvs() * np.sin(self.B.rvs()*(time+self.C.rvs()) + self.D.rvs())
@@ -255,9 +226,65 @@ class SineTSGenerator(TSGenerator):
 
 
 class EclipsingBinaryTSGenerator(TSGenerator):
-    def __init__(self, name, params:dict[str,stats.rv_continuous|float]={}) -> None:
+    def __init__(self, name, params:typing.Dict[str,stats.rv_continuous]={}) -> None:
         """
         Eclipsing Binary using the ellc package. Has several parameter distributions set by default, as noted below. Only use the params input to modify from this default.
+
+        Parameters
+        ----------
+
+        A: stats.Normal
+            
+        """
+        self.name = name
+        self.params = {
+            'radius_1': stats.uniform(loc=.05, scale=.2),
+            'radius_2': stats.uniform(loc=.05, scale=.2),
+            'incl': stats.uniform(loc=80, scale=10),
+            'ecc': MixtureModel([stats.truncexpon(b=5, scale=.1), stats.truncnorm(loc=0, scale=.3, a=0, b=5/3)]),
+            'om': MixtureModel([stats.uniform(loc=0, scale=0.0), stats.uniform(loc=np.pi, scale=0.0)]),  # choose positive or negative phase
+            'period': stats.lognorm(s=1., loc=.3, scale=4),
+            'sbratio': MixtureModel([stats.uniform(loc=1.2, scale=.8), stats.uniform(loc=1.2, scale=.8), stats.truncnorm(loc=2, scale=.12, a=-5, b=0)]),
+            't_zero': stats.uniform(loc=0, scale=1)   # uniform in phase space
+        }
+        
+        # loop through and assign the parameters to class variables
+        for key, value in params.items():
+            self.params[key] = trc.convert_to_distribution(value)
+            # setattr(self, key, trc.convert_to_distribution(value))
+        pass
+
+    def __repr__(self):
+        return "EclipsingBinaryTSGenerator"
+        
+    def generate_signal(self, time:np.ndarray, param_values:typing.Dict[str,stats.rv_continuous]=None) -> np.ndarray:
+        """Add."""
+        if param_values is None:
+            # sample the distributions
+            param_values = self.sample()
+
+        # calculate f_c, f_s, and any other calculable values
+        ecc = param_values['ecc']
+        om = param_values['om']
+        param_values['f_c'] = np.sqrt(ecc)*np.cos(om)
+        param_values['f_s'] = np.sqrt(np.abs(ecc - param_values['f_c']**2))
+        param_values['t_zero'] = param_values['t_zero'] * param_values['period']
+
+        # delete non-kwarg parameters
+        del param_values['ecc']
+        del param_values['om']
+
+        # calculate the flux
+        flux = ellc.lc(time, **param_values)
+        return flux, param_values
+
+
+class ButterpyTSGenerator(TSGenerator):
+    def __init__(self, name, params:typing.Dict[str,stats.rv_continuous]={}) -> None:
+        """
+        Rotating stars using the Butterpy package. Has several parameter distributions set by default, as noted below. Only use the params input to modify from this default.
+
+        NOTE: Currently, this only works in python 3.8.
 
         Parameters
         ----------
@@ -306,6 +333,5 @@ class EclipsingBinaryTSGenerator(TSGenerator):
         # calculate the flux
         flux = ellc.lc(time, **param_values)
         return flux, param_values
-
 
    
