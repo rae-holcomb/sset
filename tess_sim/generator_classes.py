@@ -279,6 +279,11 @@ class EclipsingBinaryTSGenerator(TSGenerator):
         return flux, param_values
 
 
+# NOTE TO SELF
+# Need to adjust the Butterpy and EB classes so that the param dictionary
+# overwrites only the specific variables fed into the class
+
+
 class ButterpyTSGenerator(TSGenerator):
     def __init__(self, name, params:typing.Dict[str,stats.rv_continuous]={}) -> None:
         """
@@ -294,14 +299,18 @@ class ButterpyTSGenerator(TSGenerator):
         """
         self.name = name
         self.params = {
-            'radius_1': stats.uniform(loc=.05, scale=.2),
-            'radius_2': stats.uniform(loc=.05, scale=.2),
-            'incl': stats.uniform(loc=80, scale=10),
-            'ecc': MixtureModel([stats.truncexpon(b=5, scale=.1), stats.truncnorm(loc=0, scale=.3, a=0, b=5/3)]),
-            'om': MixtureModel([stats.uniform(loc=0, scale=0.0), stats.uniform(loc=np.pi, scale=0.0)]),  # choose positive or negative phase
-            'period': stats.lognorm(s=1., loc=.3, scale=4),
-            'sbratio': MixtureModel([stats.uniform(loc=1.2, scale=.8), stats.uniform(loc=1.2, scale=.8), stats.truncnorm(loc=2, scale=.12, a=-5, b=0)]),
-            't_zero': stats.uniform(loc=0, scale=1)   # uniform in phase space
+            'butterfly': True, # make two separate classes for True and False for this
+            'activity_rate': 1, #stats.uniform(loc=.05, scale=.2),
+            'cycle_length': 1, #stats.uniform(loc=80, scale=10),
+            'cycle_overlap': 1, #MixtureModel([stats.truncexpon(b=5, scale=.1), stats.truncnorm(loc=0, scale=.3, a=0, b=5/3)]),
+            'decay_time': 1, #MixtureModel([stats.uniform(loc=0, scale=0.0), stats.uniform(loc=np.pi, scale=0.0)]), 
+            'max_ave_lat': 1, #stats.lognorm(s=1., loc=.3, scale=4),
+            'min_ave_lat': 1, #MixtureModel([stats.uniform(loc=1.2, scale=.8), stats.uniform(loc=1.2, scale=.8), stats.truncnorm(loc=2, scale=.12, a=-5, b=0)]),
+            'alpha_med': 1, #stats.uniform(loc=0, scale=1),   
+            'period': 1, #stats.uniform(loc=0, scale=1),   
+            'incl': stats.uniform(loc=0, scale=1), #later transform with sin^2i,   
+            'decay_timescale': 1, #stats.uniform(loc=0, scale=1),   
+            'diffrot_shear': 1, #stats.uniform(loc=0, scale=1)   
         }
         
         # loop through and assign the parameters to class variables
@@ -320,6 +329,8 @@ class ButterpyTSGenerator(TSGenerator):
             param_values = self.sample()
 
         # calculate f_c, f_s, and any other calculable values
+        incl = trc.convert_to_incl(param_values['incl'])
+        
         ecc = param_values['ecc']
         om = param_values['om']
         param_values['f_c'] = np.sqrt(ecc)*np.cos(om)

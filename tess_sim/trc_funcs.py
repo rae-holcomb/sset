@@ -138,6 +138,10 @@ def convert_to_distribution(input: typing.Union[float, stats.rv_continuous]) -> 
     else:
         return input
 
+def convert_to_incl(y):
+    """Takes a number in [0,1] and transforms it to an inclination according to y = sin^2(i). Useful for calculating distributions that are uniform in sin^2(i) space."""
+    return np.arcsin(np.sqrt(y))
+
 # Goddard work
 
 
