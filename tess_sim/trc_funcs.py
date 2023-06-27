@@ -343,6 +343,28 @@ def fit_bkg(tpf: lk.TessTargetPixelFile, polyorder: int = 1) -> np.ndarray:
     return model
 
 
+def measure_noise(tpf, medfil_kernel=25, window=25, mask=None):
+    """Measure the characteristic noise of a pixel as a function of mean flux. medfil_kernel is the kernel size used when calculating the median filter. Window is in units of data points and will be affected by what the cadence of your data is, controls how long of a window will be used to calculate the standard deviation."""
+    # pseudo code
+    # # get median filter of raw data
+    # mf_raw = ndimage.median_filter(tpf.flux.value, size=[medfil_kernel,1,1])
+
+
+    # subtract background, median filter that, subtract that
+    bkg = fit_bkg(tpf, polyorder=3)
+    mf1 = ndimage.median_filter(tpf.flux.value - bkg, size=[medfil_kernel,1,1])
+    cleaned = tpf.flux.value - bkg - mf1
+
+    # calculate running median and std 
+    time = tpf.time.value
+    time_bin = np.arange(time[0], time[-1], .5)
+    std_bin = stats.binned_statistic(time, cleaned.reshape([tpf.shape[0],tpf.shape[1]*tpf.shape[2]]).T, bins=time_bin, statistic='std')[0]
+    med_bin = stats.binned_statistic(time, tpf.flux.value.reshape([tpf.shape[0],tpf.shape[1]*tpf.shape[2]]).T, bins=time_bin, statistic='median')[0]
+
+    # save datapoint as function of [median of raw data, std]
+    return med_bin.flatten(), std_bin.flatten()
+
+
 def generate_point_field(tpf_cutout, source_cat, plot=False):
     """Given a source catalog and tpf_cutout, generates a field with point sources. Currently is very jank and just proof of concept. The list of sources in read in and then the single pixel nearest their location is given a value weighed by 16-Tmag. The plot keyword will plot the tpf_cutout and the basic field, rotated so that they hopefully line up.
 

@@ -123,7 +123,7 @@ class TSGenerator():
                 param_values[key] = distr.rvs()
         return param_values
 
-    def generate_signal(self, time:np.ndarray, **kwargs) -> tuple[np.ndarray, dict[str,float]] :
+    def generate_signal(self, time:np.ndarray, **kwargs) -> typing.Tuple[np.ndarray, typing.Dict[str,float]] :
         """To be supplied by the user. Must take time as a positional argument, and return a tuple containing the flux array as the first argument and a dictionary with the selected parameter values as the second."""
         raise NotImplementedError
 
@@ -146,8 +146,8 @@ class TSGenerator():
 class FunctionSelector():
     """Used to select what functions get inputed.
     TO DO: restrict function input types."""
-    # def __init__(self, generators: typing.List[typing.Tuple[TSGenerator, float]] = None):
-    def __init__(self, generators: list[tuple[TSGenerator, float]] = None):
+    def __init__(self, generators: typing.List[typing.Tuple[TSGenerator, float]] = None):
+    # def __init__(self, generators: list[tuple[TSGenerator, float]] = None):
         self.generators = {}
         self.weights = {}
         
@@ -189,7 +189,7 @@ class FunctionSelector():
         selected_key = random.choices(keys, weights=[self.weights[key] for key in keys], k=10)
         return selected_key
     
-    def instantiate_function(self, time:np.ndarray) -> list[np.ndarray, dict]:
+    def instantiate_function(self, time:np.ndarray) -> typing.Tuple[np.ndarray, typing.Dict]:
         """Add."""
         # pick what type of function
         selected_key = self.select_generator()
@@ -204,7 +204,7 @@ class FunctionSelector():
 
 # subclass from TSGenerator
 class SineTSGenerator(TSGenerator):
-    def __init__(self, name, params:typing.Dict[str,stats.rv_continuous|float]={'A':1, 'B':1, 'C':0, 'D':0}) -> None:
+    def __init__(self, name, params:typing.Dict[str,stats.rv_continuous]={'A':1, 'B':1, 'C':0, 'D':0}) -> None:
         # define each arg distribution in the definition
         # func needs to be in the format func(time, **kwargs)
         # name must be a string
@@ -322,7 +322,7 @@ class ButterpyTSGenerator(TSGenerator):
     def __repr__(self):
         return "EclipsingBinaryTSGenerator"
         
-    def generate_signal(self, time:np.ndarray, param_values:dict[str,stats.rv_continuous|float]=None) -> np.ndarray:
+    def generate_signal(self, time:np.ndarray, param_values:typing.Dict[str,stats.rv_continuous]=None) -> np.ndarray:
         """Add."""
         if param_values is None:
             # sample the distributions
