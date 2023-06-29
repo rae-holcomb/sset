@@ -16,14 +16,20 @@ import astropy.units as u
 import astropy.wcs as wcs
 # from astropy.stats import sigma_clip
 # from scipy import ndimage
+import typing
 
 import trc_funcs as trc
 
 class Field():
-    """Creates an array that """
+    """Creates an array that 
+    Inputs
+        noise_func - the function used to be 
+        noice_coeffs - the coefficients for the noise model"""
     def __init__(self, orig_tpf: lk.TessTargetPixelFile,
         source_cat: astropy.table,
         bkg_polyorder: int, 
+        noise_func: typing.Callable=None, 
+        noise_coeffs: np.array=None,
         pos_time=None, pos_corr1=None, pos_corr2=None,
         id: int=None):
 
@@ -31,11 +37,20 @@ class Field():
         self.orig_tpf = orig_tpf
         self.source_cat = source_cat
         self.shape = orig_tpf.shape[1:]
-        self.field = np.zeros(self.shape)
+        # self.field = np.zeros(self.shape)
         self.cam = orig_tpf.meta['CAMERA']
         self.ccd = orig_tpf.meta['CCD']
         self.sector = orig_tpf.meta['SECTOR']
+        self.noise_func = noise_func
+        self.noise_coeffs = noise_coeffs
 
+        # define arrays that will get populated as the field is assembled
+        self.field = np.zeros(self.orig_tpf.shape)
+        self.bkg = np.zeros(self.orig_tpf.shape)
+        self.sources = np.zeros(self.orig_tpf.shape)
+        self.noise = np.zeros(self.orig_tpf.shape)
+
+        # set the id number
         if id is not None:
             self.id = id 
         else:
@@ -53,11 +68,11 @@ class Field():
             # if no positional deviation information is supplied, populate the matrices with zeros
             self.pos_corr = np.zeros([2,len(self.orig_tpf)])
 
-        # fit a background and add it to the field
-        self.bkg = self.fit_bkg(polyorder=bkg_polyorder)
+        # # fit a background and add it to the field
+        # self.bkg = self.fit_bkg(polyorder=bkg_polyorder)
         
-        # final assembly
-        self.field = np.add(self.field, self.bkg)
+        # # final assembly
+        # self.field = np.add(self.field, self.bkg)
         # add in noise from noise model here
 
     def prep_positional_data(self, pos_time, pos_corr1, pos_corr2):
@@ -123,26 +138,45 @@ class Field():
             # gauss_blink = np.multiply(signal[:, np.newaxis, np.newaxis], source_prf[np.newaxis, :, :])
             gauss_blink = np.multiply(signal[:, np.newaxis, np.newaxis], source_prf)
 
-            # add to the field
-            self.field = np.add(self.field, gauss_blink)
+            # add to the sources array
+            self.sources = np.add(self.sources, gauss_blink)
             # field = np.add(field, gauss[np.newaxis, :, :])
             # field[:,pix1[cut],pix2[cut]] = 16 - self.source_cat['Tmag'][cut]
 
-        return
+        pass
 
     def add_sources_from_catalog(self):
         """Given a catalog of sources, adds each of them to the Field."""
         return
 
-    def fit_bkg(self, polyorder=1):
+    def calc_bkg(self, polyorder=3):
         """Adds background to the Field. Should only be called once."""
-        return trc.fit_bkg(self.orig_tpf, polyorder=polyorder)
+        self.bkg = trc.fit_bkg(self.orig_tpf, polyorder=polyorder)
+        pass
 
-    def add_empirical_noise(self):
-        """Adds """
+    def set_noise_func(self, noise_func=None, noise_coeffs=None):
+        """Allows the user to update the function and coefficients used to generate the empirical noise."""
+        if noise_func is not None:
+            self.noise_func = noise_func
+        if noise_coeffs is not None:
+            self.noise_coeffs = noise_coeffs
+        pass
+
+    def calc_empirical_noise(self):
+        """Adds noise to the data based off the flux off pixel, using the noise function provided. Should only be called once the background and sources have been added."""
+        logflux = np.log10(self.bkg + self.sources)
+        self.noise = np.random.normal(0,self.noise_func(logflux,self.noise_coeffs))
+        pass
+
+
+    def assemble(self):
+        """Once the background, sources, and noise have been added, assembles them all into the field."""
+        self.field = self.bkg + self.sources + self.noise
+        pass
 
     def to_tpf(self):
         """Converts the field to a TargetPixelFile."""
+        self.assemble()
         out_file = copy.copy(self.orig_tpf)
         out_file = out_file * 0
         out_file += self.field

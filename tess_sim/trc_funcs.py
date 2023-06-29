@@ -16,6 +16,7 @@ from scipy import stats
 from astropy.stats import sigma_clip
 import astropy.table
 from scipy import ndimage
+from scipy.optimize import curve_fit
 
 import field as Field
 
@@ -141,6 +142,22 @@ def convert_to_distribution(input: typing.Union[float, stats.rv_continuous]) -> 
 def convert_to_incl(y):
     """Takes a number in [0,1] and transforms it to an inclination according to y = sin^2(i). Useful for calculating distributions that are uniform in sin^2(i) space."""
     return np.arcsin(np.sqrt(y))
+
+def exponential(x, coeffs):
+    """
+    Defines a parabola. Intended to be used by curvefit function. coeffs takes the form [a, b, c] for the exponential form y = a * np.exp(b * x) + c.
+    """
+    return coeffs[0] * np.exp(coeffs[1] * x) + coeffs[2]
+
+def polynomial(x,coeffs):
+    """
+    Defines a parabola. Intended to be used by curvefit function..
+    """
+    y = np.zeros_like(x)
+    
+    for ind, val in enumerate(coeffs):
+        y += val * np.power(x, len(coeffs) - ind - 1)
+    return y
 
 # Goddard work
 
