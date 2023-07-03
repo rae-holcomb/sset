@@ -145,7 +145,8 @@ class TSGenerator():
 # class FunctionSelector:
 class FunctionSelector():
     """Used to select what functions get inputed.
-    TO DO: restrict function input types."""
+    TO DO: restrict function input types.
+    The generators list should be [obj:TSGenerator, weight:float]"""
     def __init__(self, generators: typing.List[typing.Tuple[TSGenerator, float]] = None):
     # def __init__(self, generators: list[tuple[TSGenerator, float]] = None):
         self.generators = {}
@@ -166,13 +167,13 @@ class FunctionSelector():
     def print_verbose(self) -> str:
         """Prints out a long version, with all the functions and their kwargs listed."""
         raise NotImplementedError
-        pass
 
-    def add_generator(self, name:str, generator:TSGenerator, weight:float) -> None:
+    def add_generator(self, generator:TSGenerator, weight:float) -> None:
         """Adds a function to the options which can be selected.
         TO DO: restrict function input types."""
-        self.generators[name] = (generator, weight)
-        # self.weights[name] = weight
+        # self.generators[name] = (generator, weight)
+        self.generators[generator.name] = generator
+        self.weights[generator.name] = weight
 
     def delete_generator(self, name:str) -> None:
         """Deletes a function from the selection options."""
@@ -186,7 +187,7 @@ class FunctionSelector():
     def select_generator(self) -> TSGenerator:
         # (OLD) selected_generator = random.choices(list(zip(*self.funcs.values()))[0], weights=list(zip(*self.funcs.values()))[1])
         keys = list(self.weights.keys())
-        selected_key = random.choices(keys, weights=[self.weights[key] for key in keys], k=10)
+        selected_key = random.choices(keys, weights=[self.weights[key] for key in keys], k=1)[0]
         return selected_key
     
     def instantiate_function(self, time:np.ndarray) -> typing.Tuple[np.ndarray, typing.Dict]:
@@ -204,7 +205,7 @@ class FunctionSelector():
 
 # subclass from TSGenerator
 class SineTSGenerator(TSGenerator):
-    def __init__(self, name, params:typing.Dict[str,stats.rv_continuous]={'A':1, 'B':1, 'C':0, 'D':0}) -> None:
+    def __init__(self, name, params:typing.Dict[str,stats.rv_continuous]={'A':1, 'B':1, 'C':0, 'D':1}) -> None:
         # define each arg distribution in the definition
         # func needs to be in the format func(time, **kwargs)
         # name must be a string
@@ -216,9 +217,11 @@ class SineTSGenerator(TSGenerator):
             setattr(self, key, trc.convert_to_distribution(value))
         pass
 
-    def generate_signal(self, time:np.ndarray) -> np.ndarray:
+    def generate_signal(self, time:np.ndarray) -> typing.Tuple[np.ndarray, typing.Dict[str,float]]:
         """....size time"""
-        return self.A.rvs() * np.sin(self.B.rvs()*(time+self.C.rvs()) + self.D.rvs())
+        params1 = self.sample()
+        flux = params1['A'] * np.sin(params1['B']*(time+params1['C'])) + params1['D']
+        return flux, params1
         # return np.sin(self.A.sample() * time) + self.offset.sample()
 
     def __repr__(self):
