@@ -23,15 +23,18 @@ import trc_funcs as trc
 class Field():
     """Creates an array that 
     Inputs
-        noise_func - the function used to be 
+        bkg_variability_generator - a FunctionSelector object that will generate variable timeseries for background stars
+        noise_func - the function used to be for the empirical noise model
         noice_coeffs - the coefficients for the noise model"""
     def __init__(self, orig_tpf: lk.TessTargetPixelFile,
         source_cat: astropy.table,
         bkg_polyorder: int, 
+        bkg_variability_generator: typing.Callable=None,
         noise_func: typing.Callable=None, 
         noise_coeffs: np.array=None,
         pos_time=None, pos_corr1=None, pos_corr2=None,
-        id: int=None):
+        id: int=None,
+        add_offset=True):
 
         # define some useful variables
         self.orig_tpf = orig_tpf
@@ -41,14 +44,24 @@ class Field():
         self.cam = orig_tpf.meta['CAMERA']
         self.ccd = orig_tpf.meta['CCD']
         self.sector = orig_tpf.meta['SECTOR']
+        self.bkg_variability_generator = bkg_variability_generator
         self.noise_func = noise_func
         self.noise_coeffs = noise_coeffs
+
+        # define a table that will track all the values used to make this field
+        #  TO DO
+        # source, position, variability function, params, offset
+        # ideally, you should be able to feed this table into a Field object and recreate the same field
+        # hm.... will have to think about implementation
 
         # define arrays that will get populated as the field is assembled
         self.field = np.zeros(self.orig_tpf.shape)
         self.bkg = np.zeros(self.orig_tpf.shape)
         self.sources = np.zeros(self.orig_tpf.shape)
         self.noise = np.zeros(self.orig_tpf.shape)
+
+        # flags for turning certain things on or off
+        self.add_offset = add_offset
 
         # set the id number
         if id is not None:
@@ -112,13 +125,13 @@ class Field():
         cut = (pix1int < self.shape[0]+buffer) & (pix1int >= 0-buffer) & (pix2int < self.shape[1]+buffer) & (pix2int >= 0-buffer)
         source_cut = self.source_cat[cut]
 
-        # retrieve the prf for this tpf
-        # Suppose the following for a TPF of interest
-        cam = self.orig_tpf.meta['CAMERA']
-        ccd = self.orig_tpf.meta['CCD']
-        sector = self.orig_tpf.meta['SECTOR']
-        colnum = self.orig_tpf.column #middle of TPF?
-        rownum = self.orig_tpf.row #middle of TPF?
+        # # retrieve the prf for this tpf
+        # # Suppose the following for a TPF of interest
+        # cam = self.orig_tpf.meta['CAMERA']
+        # ccd = self.orig_tpf.meta['CCD']
+        # sector = self.orig_tpf.meta['SECTOR']
+        # colnum = self.orig_tpf.column #middle of TPF?
+        # rownum = self.orig_tpf.row #middle of TPF?
 
         # add sources to the field, weighted by Tmag
         for source_ind in range(len(source_cut)):
@@ -126,6 +139,12 @@ class Field():
             # add the signal to the source
             # signal = flux_arr[source_ind] + 10*np.sin(self.orig_tpf.time.value * np.random.uniform(.5, 1.5))
             signal = flux_arr[source_ind] * signal_func(self.orig_tpf.time.value)
+
+            # add an offset if requested
+            # NOTE: NEED TO MAKE NOTE OF THIS SOMEWHERE IN THE FIELD OBJECT
+            if self.add_offset == True:
+                offset = self.generate_offset()
+                signal *= offset
 
             # resample to make the prf for the source
             # source_prf = self.prf.locate(pix1[source_ind],pix2[source_ind], self.shape)
@@ -167,6 +186,10 @@ class Field():
         logflux = np.log10(self.bkg + self.sources)
         self.noise = np.random.normal(0,self.noise_func(logflux,self.noise_coeffs))
         pass
+
+    def generate_offset(self) -> float:
+        """Generates a multiplicative offset for each source in the field. Currently, just using a gaussian centered on 1 with a sigma of .0125, but maybe make this more complicated later to reflect empirical offsets for each sector."""
+        return np.random.normal(loc=1., scale=.0125)
 
 
     def assemble(self):

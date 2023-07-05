@@ -124,22 +124,13 @@ class TSGenerator():
         return param_values
 
     def generate_signal(self, time:np.ndarray, **kwargs) -> typing.Tuple[np.ndarray, typing.Dict[str,float]] :
-        """To be supplied by the user. Must take time as a positional argument, and return a tuple containing the flux array as the first argument and a dictionary with the selected parameter values as the second."""
+        """This function draws a value from each of the parameter distributions and then calls self.functional_form() with those parameter values to generate a signal for the given time array. Must take time as a positional argument, and return a tuple containing the flux array as the first argument and a dictionary with the selected parameter values as the second."""
+        param_values = self.sample()
+        return self.functional_form(time, param_values)
+
+    def functional_form(self, time:np.ndarray, params:typing.Dict[str,stats.rv_continuous]) -> typing.Tuple[np.ndarray, typing.Dict[str,float]] :
+        """To be supplied by the user. This function provides the functional form to generate a signal given a time array. It must take time and a dictionary of parameters as positional arguments, and return a tuple containing the flux array as the first argument and a dictionary with the selected parameter values as the second."""
         raise NotImplementedError
-
-        # # make copy of the kwargs for this specific instantiation
-        # params = self.kwargs.copy()
-
-        # # draw parameter values from the distributions
-        # for key, value in self.distributions.items():
-        #     params[key] = value.rvs(1)[0]
-        
-        # print(params)
-        # print(len(time))
-
-        # # calculate the flux
-        # flux = self.func(time, **params)
-        # return flux, params
 
 
 # class FunctionSelector:
@@ -217,12 +208,11 @@ class SineTSGenerator(TSGenerator):
             setattr(self, key, trc.convert_to_distribution(value))
         pass
 
-    def generate_signal(self, time:np.ndarray) -> typing.Tuple[np.ndarray, typing.Dict[str,float]]:
+    def functional_form(self, time:np.ndarray, param_values:typing.Dict[str,stats.rv_continuous]) -> typing.Tuple[np.ndarray, typing.Dict[str,float]]:
         """....size time"""
-        params1 = self.sample()
-        flux = params1['A'] * np.sin(params1['B']*(time+params1['C'])) + params1['D']
-        return flux, params1
-        # return np.sin(self.A.sample() * time) + self.offset.sample()
+        # param_values = self.sample()
+        flux = param_values['A'] * np.sin(param_values['B']*(time+param_values['C'])) + param_values['D']
+        return flux, param_values
 
     def __repr__(self):
         return "SineTSGenerator"
@@ -260,11 +250,11 @@ class EclipsingBinaryTSGenerator(TSGenerator):
     def __repr__(self):
         return "EclipsingBinaryTSGenerator"
         
-    def generate_signal(self, time:np.ndarray, param_values:typing.Dict[str,stats.rv_continuous]=None) -> np.ndarray:
+    def functional_form(self, time:np.ndarray, param_values:typing.Dict[str,stats.rv_continuous]=None) -> np.ndarray:
         """Add."""
-        if param_values is None:
-            # sample the distributions
-            param_values = self.sample()
+        # if param_values is None:
+        #     # sample the distributions
+        #     param_values = self.sample()
 
         # calculate f_c, f_s, and any other calculable values
         ecc = param_values['ecc']
