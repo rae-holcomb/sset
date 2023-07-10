@@ -137,7 +137,6 @@ class Field():
         for source_ind in range(len(source_cut)):
         # for source_ind in range(1,2):
             # add the signal to the source
-            # signal = flux_arr[source_ind] + 10*np.sin(self.orig_tpf.time.value * np.random.uniform(.5, 1.5))
             signal = flux_arr[source_ind] * signal_func(self.orig_tpf.time.value)
 
             # add an offset if requested
