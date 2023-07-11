@@ -36,9 +36,10 @@ class Field():
         noise_coeffs: np.array=None,
         pos_time=None, pos_corr1=None, pos_corr2=None,
         id: int=None,
-        add_offset=True,
-        buffer: int=3,
-        offset_scale: float=0.0125):
+        add_offset=False,
+        offset_scale: float=0.0125,
+        buffer: int=3
+        ):
 
         # define some useful variables
         self.orig_tpf = orig_tpf
@@ -77,6 +78,7 @@ class Field():
         # define arrays that will get populated as the field is assembled
         self.field = np.zeros(self.orig_tpf.shape)
         self.bkg = np.zeros(self.orig_tpf.shape)
+        self.signals1D = np.ones((len(self.source_catalog),len(self.orig_tpf.time)))
         self.signals2D = np.zeros(self.orig_tpf.shape)
         self.noise = np.zeros(self.orig_tpf.shape)
 
@@ -136,7 +138,7 @@ class Field():
 
         return [pc1, pc2]
 
-    def add_source(self, idx: int, random_signal=True, signal_func=None, buffer=3):
+    def add_source(self, idx: int, random_signal=True, signal_func=None, buffer=3, **kwargs):
         """NEW VERSION
         Adds a source with a given flux and position to the Field.
         signal - a 1d array that gives the behavior of the source over time, normalized to 1. Note that if random_signal=False then a signal_func MUST be provided.
@@ -145,52 +147,43 @@ class Field():
             idx - the index (or array of indices) in the source catalog of the source
             signal_func - (callable) the function to be used to generate the signal
             random_signal - (bool) if true, will use the FunctionSelector to generate a random signal"""
-        
-        # # convert source coords to pixel numbers and int pixel numbers
-        # pix1, pix2 = self.orig_tpf.wcs.all_world2pix(self.source_catalog['ra'], self.source_catalog['dec'], 0)
-        # pix1int = np.rint(pix1).astype(int)
-        # pix2int = np.rint(pix2).astype(int)
-
-        # # convert flux to mag (FIX LATER)
-        # flux_arr = trc.mag_to_flux(self.source_catalog['Tmag'])
-
-        # # cut out indices where the target falls significantly outside the cutout
-        # cut = (pix1int < self.shape[0]+buffer) & (pix1int >= 0-buffer) & (pix2int < self.shape[1]+buffer) & (pix2int >= 0-buffer)
-        # source_cut = self.source_catalog[cut]
-
-        # # retrieve the prf for this tpf
-        # # Suppose the following for a TPF of interest
-        # cam = self.orig_tpf.meta['CAMERA']
-        # ccd = self.orig_tpf.meta['CCD']
-        # sector = self.orig_tpf.meta['SECTOR']
-        # colnum = self.orig_tpf.column #middle of TPF?
-        # rownum = self.orig_tpf.row #middle of TPF?
+        if type(idx) == int:
+            idx = np.array([idx])
 
         # add sources to the field, weighted by Tmag
-        for source_ind in range(len(self.source_catalog)):
+        for source_ind in idx:
         # for source_ind in range(1,2):
-            # add the signal to the source
-            signal = flux_arr[source_ind] * signal_func(self.orig_tpf.time.value)
+            row = self.source_catalog[source_ind]
+            # generate signal
+            if random_signal:
+                selected_function, signal, params = self.bkg_variability_generator.instantiate_function(self.orig_tpf.time.value)
+                # record what function was used
+                self.source_catalog['signal_function'] = selected_function
+            else:
+                signal, params = signal_func.generate_signal(self.orig_tpf.time.value)
+                # record what function was used
+                self.source_catalog['signal_function'] = signal_func.name
 
-            # add an offset if requested
-            # NOTE: NEED TO MAKE NOTE OF THIS SOMEWHERE IN THE FIELD OBJECT
-            if self.add_offset == True:
-                offset = self.generate_offset()
-                signal *= offset
+            # update the class variables to reflect the inject signal
+            self.signals1D[source_ind,:] = signal
+            self.source_catalog['signal_params'] = params
+            
+
+            # scale by the flux and apply offset
+            signal_scaled = row['Tflux'] * self.signals1D[source_ind,:] * row['offset']
 
             # resample to make the prf for the source
             # source_prf = self.prf.locate(pix1[source_ind],pix2[source_ind], self.shape)
             try:
-                source_prf = [self.prf.locate(pix1[source_ind]+self.pos_corr[0][i], pix2[source_ind]+self.pos_corr[1][i], self.shape) for i in range(len(self.orig_tpf))]
+                source_prf = [self.prf.locate(row['pix1']+self.pos_corr[0][i], row['pix2']+self.pos_corr[1][i], self.shape) for i in range(len(self.orig_tpf))]
             except:
-                print(source_ind)
+                print("Couldn't find PRF for target index " + str(source_ind))
 
             # apply the prf to the signl and add to image
-            # gauss_blink = np.multiply(signal[:, np.newaxis, np.newaxis], source_prf[np.newaxis, :, :])
-            gauss_blink = np.multiply(signal[:, np.newaxis, np.newaxis], source_prf)
+            signal2D = np.multiply(signal_scaled[:, np.newaxis, np.newaxis], source_prf)
 
             # add to the signals2D array
-            self.signals2D = np.add(self.signals2D, gauss_blink)
+            self.signals2D = np.add(self.signals2D, signal2D)
             # field = np.add(field, gauss[np.newaxis, :, :])
             # field[:,pix1[cut],pix2[cut]] = 16 - self.source_catalog['Tmag'][cut]
 

@@ -181,7 +181,7 @@ class FunctionSelector():
         selected_key = random.choices(keys, weights=[self.weights[key] for key in keys], k=1)[0]
         return selected_key
     
-    def instantiate_function(self, time:np.ndarray) -> typing.Tuple[np.ndarray, typing.Dict]:
+    def instantiate_function(self, time:np.ndarray, **kwargs) -> typing.Tuple[np.ndarray, typing.Dict]:
         """Add."""
         # pick what type of function
         selected_key = self.select_generator()
@@ -190,8 +190,8 @@ class FunctionSelector():
         # apply the function to the time array and return the flux and the selected args
         # print(type(selected_key))
         # func = self.funcs[selected_key][0]
-        flux, params = self.generators[selected_key].generate_signal(time)
-        return flux, params
+        flux, params = self.generators[selected_key].generate_signal(time, **kwargs)
+        return selected_key, flux, params
 
 
 # subclass from TSGenerator
