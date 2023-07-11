@@ -43,6 +43,7 @@ class Field():
 
         # define some useful variables
         self.orig_tpf = orig_tpf
+        self.time = orig_tpf.time.value
         self.source_catalog = source_catalog.copy()
         self.shape = orig_tpf.shape[1:]
         self.cam = orig_tpf.meta['CAMERA']
@@ -138,7 +139,7 @@ class Field():
 
         return [pc1, pc2]
 
-    def add_source(self, idx: int, random_signal=True, signal_func=None, buffer=3, **kwargs):
+    def add_signal(self, idx: int, random_signal=True, signal_func=None, **kwargs):
         """NEW VERSION
         Adds a source with a given flux and position to the Field.
         signal - a 1d array that gives the behavior of the source over time, normalized to 1. Note that if random_signal=False then a signal_func MUST be provided.
@@ -184,12 +185,9 @@ class Field():
 
             # add to the signals2D array
             self.signals2D = np.add(self.signals2D, signal2D)
-            # field = np.add(field, gauss[np.newaxis, :, :])
-            # field[:,pix1[cut],pix2[cut]] = 16 - self.source_catalog['Tmag'][cut]
-
         pass
 
-    def add_source_legacy(self, signal_func, buffer=3):
+    def add_signal_legacy(self, signal_func, buffer=3):
         """OLD VERSION, DELETE ONCE YOU HAVE THE NEW ONE WORKING
         Adds a source with a given flux and position to the Field.
         signal - a 1d array that gives the behavior of the source over time, normalized to 1."""
@@ -244,7 +242,7 @@ class Field():
 
         pass
 
-    def add_sources_from_catalog(self):
+    def add_signals_from_catalog(self):
         """Given a catalog of sources, adds each of them to the Field."""
         return
 

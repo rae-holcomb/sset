@@ -50,89 +50,6 @@ class MixtureModel(stats.rv_continuous):
         rvs = np.choose(submodel_choices, submodel_samples)
         return rvs
 
-# @dataclass
-class TSGenerator():
-    """A generic class that generates a signal in a light curve."""
-
-    def __init__(self, name, params:typing.Dict[str,stats.rv_continuous]={}) -> None:
-        # define each arg distribution in the definition
-        # func needs to be in the format func(time, **kwargs)
-        # name must be a string
-        self.name = name
-        self.params = params.copy()
-
-        # # loop through and convert floats to distributions as needed
-        # for key, value in params.items():
-        #     self.params[key] = trc.convert_to_distribution(value)
-
-        # # loop through and assign the parameters to class variables
-        # for key, value in params.items():
-        #     setattr(self, key, trc.convert_to_distribution(value))
-        pass
-
-    def __str__(self) -> str:
-        # print out a summary of the args and their distributions
-        output = str(self.name) + '\n'
-        # loop through and add distribution parameters
-        # for key, value in self.__dict__.items():
-        for key, value in self.params.items():
-            if key == 'name':
-                continue
-            elif isinstance(value, (int, float)):
-                output += '\t' + key + ': ' + str(value) + '\n'
-            elif isinstance(value, MixtureModel):
-                output += '\t' + key + ': ' + 'MixtureModel' + '\n'
-                output += '\t\t' + str([str(model.dist).split(" ")[0] + '>' for model in value.submodels]) + '\n'
-                output += '\t\t' + str([model.kwds for model in value.submodels])  + '\n'
-            elif isinstance(value.dist, stats.rv_continuous):
-                output += '\t' + key + ': ' + str(value.dist).split(" ")[0] + '>, ' + str(value.kwds) + '\n'
-            else: 
-                output += '\t' + key + ': ' + 'Unrecognized distribution type' + '\n'
-        
-        return output
-
-    def __repr__(self):
-        return "TSGenerator"
-        
-    def __iter__(self, key):
-        return self.__dict__[key]
-
-    def update_param(self, name:str, distr: stats.rv_continuous) -> None:
-        """Update or add a distribution for a particular parameter. Must be a [input format here]."""
-        setattr(self, name, distr)
-        pass
-
-    def delete_param(self, name:str) -> None:
-        """Remove a parameter."""
-        delattr(self, name)
-        pass
-
-    def plot_parameter(self, name:str) -> None:
-        raise NotImplementedError
-
-    def sample(self) -> typing.Dict[str, float]:
-        """Pulls a value from each parameter distribution."""
-        # iterate over the parameters and pull one value from each distribution
-        param_values = self.params.copy()
-        # del param_values['name']
-        # del param_values['params']
-        for key, distr in param_values.items():
-            if isinstance(distr, (float, int)):
-                param_values[key] = distr
-            else:
-                param_values[key] = distr.rvs()
-        return param_values
-
-    def generate_signal(self, time:np.ndarray, **kwargs) -> typing.Tuple[np.ndarray, typing.Dict[str,float]] :
-        """This function draws a value from each of the parameter distributions and then calls self.functional_form() with those parameter values to generate a signal for the given time array. Must take time as a positional argument, and return a tuple containing the flux array as the first argument and a dictionary with the selected parameter values as the second."""
-        param_values = self.sample()
-        return self.functional_form(time, param_values)
-
-    def functional_form(self, time:np.ndarray, params:typing.Dict[str,stats.rv_continuous]) -> typing.Tuple[np.ndarray, typing.Dict[str,float]] :
-        """To be supplied by the user. This function provides the functional form to generate a signal given a time array. It must take time and a dictionary of parameters as positional arguments, and return a tuple containing the flux array as the first argument and a dictionary with the selected parameter values as the second."""
-        raise NotImplementedError
-
-
 # class FunctionSelector:
 class FunctionSelector():
     """Used to select what functions get inputed.
@@ -193,6 +110,93 @@ class FunctionSelector():
         flux, params = self.generators[selected_key].generate_signal(time, **kwargs)
         return selected_key, flux, params
 
+# @dataclass
+class TSGenerator():
+    """A generic class that generates a signal in a light curve."""
+
+    def __init__(self, name, params:typing.Dict[str,stats.rv_continuous]={}) -> None:
+        # define each arg distribution in the definition
+        # func needs to be in the format func(time, **kwargs)
+        # name must be a string
+        self.name = name
+        self.params = params.copy()
+
+        # It is useful to default values for all parameters here
+        self.params = { }
+        
+        # loop through and update the params dictionary with those provided as inputs
+        for key, value in params.items():
+            self.params[key] = trc.convert_to_distribution(value)
+
+        # # loop through and assign the parameters to class variables
+        # for key, value in params.items():
+        #     setattr(self, key, trc.convert_to_distribution(value))
+        pass
+
+    def __str__(self) -> str:
+        # print out a summary of the args and their distributions
+        output = str(self.name) + '\n'
+        # loop through and add distribution parameters
+        # for key, value in self.__dict__.items():
+        for key, value in self.params.items():
+            if key == 'name':
+                continue
+            elif isinstance(value, (int, float)):
+                output += '\t' + key + ': ' + str(value) + '\n'
+            elif isinstance(value, MixtureModel):
+                output += '\t' + key + ': ' + 'MixtureModel' + '\n'
+                output += '\t\t' + str([str(model.dist).split(" ")[0] + '>' for model in value.submodels]) + '\n'
+                output += '\t\t' + str([model.kwds for model in value.submodels])  + '\n'
+            elif isinstance(value.dist, stats.rv_continuous):
+                output += '\t' + key + ': ' + str(value.dist).split(" ")[0] + '>, ' + str(value.kwds) + '\n'
+            else: 
+                output += '\t' + key + ': ' + 'Unrecognized distribution type' + '\n'
+        
+        return output
+
+    def __repr__(self):
+        return "TSGenerator"
+        
+    def __iter__(self, key):
+        return self.__dict__[key]
+
+    def update_param(self, key:str, distr: stats.rv_continuous) -> None:
+        """Update or add a distribution for a particular parameter. Must be a [input format here]."""
+        # setattr(self, name, distr)
+        self.params[key] = trc.convert_to_distribution(distr)
+        pass
+
+    def delete_param(self, key:str) -> None:
+        """Remove a parameter."""
+        # delattr(self, key)
+        self.params.pop(key)
+        pass
+
+    def plot_parameter(self, key:str) -> None:
+        raise NotImplementedError
+
+    def sample(self) -> typing.Dict[str, float]:
+        """Pulls a value from each parameter distribution."""
+        # iterate over the parameters and pull one value from each distribution
+        param_values = self.params.copy()
+        # del param_values['name']
+        # del param_values['params']
+        for key, distr in param_values.items():
+            if isinstance(distr, (float, int)):
+                param_values[key] = distr
+            else:
+                param_values[key] = distr.rvs()
+        return param_values
+
+    def generate_signal(self, time:np.ndarray, **kwargs) -> typing.Tuple[np.ndarray, typing.Dict[str,float]] :
+        """This function draws a value from each of the parameter distributions and then calls self.functional_form() with those parameter values to generate a signal for the given time array. Must take time as a positional argument, and return a tuple containing the flux array as the first argument and a dictionary with the selected parameter values as the second."""
+        param_values = self.sample()
+        return self.functional_form(time, param_values)
+
+    def functional_form(self, time:np.ndarray, params:typing.Dict[str,stats.rv_continuous]) -> typing.Tuple[np.ndarray, typing.Dict[str,float]] :
+        """To be supplied by the user. This function provides the functional form to generate a signal given a time array. It must take time and a dictionary of parameters as positional arguments, and return a tuple containing the flux array as the first argument and a dictionary with the selected parameter values as the second."""
+        raise NotImplementedError
+
 
 # subclass from TSGenerator
 class SineTSGenerator(TSGenerator):
@@ -230,6 +234,7 @@ class EclipsingBinaryTSGenerator(TSGenerator):
             
         """
         self.name = name
+        # set default values for everything
         self.params = {
             'radius_1': stats.uniform(loc=.05, scale=.2),
             'radius_2': stats.uniform(loc=.05, scale=.2),
@@ -241,7 +246,7 @@ class EclipsingBinaryTSGenerator(TSGenerator):
             't_zero': stats.uniform(loc=0, scale=1)   # uniform in phase space
         }
         
-        # loop through and assign the parameters to class variables
+        # loop through and update the parameters with those provided as inputs
         for key, value in params.items():
             self.params[key] = trc.convert_to_distribution(value)
             # setattr(self, key, trc.convert_to_distribution(value))
