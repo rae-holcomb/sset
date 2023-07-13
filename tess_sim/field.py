@@ -111,8 +111,10 @@ class Field():
             # if no positional deviation information is supplied, populate the matrices with zeros
             self.pos_corr = np.zeros([2,len(self.orig_tpf)])
 
-        # # fit a background and add it to the field
-        # self.bkg = self.fit_bkg(polyorder=bkg_polyorder)
+        # fit a background and add it to the field
+        self.bkg = self.fit_bkg(polyorder=bkg_polyorder)
+
+        # Apply a noise model. May want to rerun this after adding in sources.
         
         # # final assembly
         # self.field = np.add(self.field, self.bkg)
@@ -247,7 +249,7 @@ class Field():
         return
 
     def calc_bkg(self, polyorder=3):
-        """Adds background to the Field. Should only be called once."""
+        """Calculates the background. Calling this will overwrite the existing background."""
         self.bkg = trc.fit_bkg(self.orig_tpf, polyorder=polyorder)
         pass
 

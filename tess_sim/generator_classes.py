@@ -22,7 +22,7 @@ import trc_funcs as trc
 # import scipy.signal
 # import astropy.table
 
-from dataclasses import dataclass
+# from dataclasses import dataclass
 
 class MixtureModel(stats.rv_continuous):
     def __init__(self, submodels, *args, **kwargs):
@@ -193,8 +193,13 @@ class TSGenerator():
         param_values = self.sample()
         return self.functional_form(time, param_values)
 
-    def functional_form(self, time:np.ndarray, params:typing.Dict[str,stats.rv_continuous]) -> typing.Tuple[np.ndarray, typing.Dict[str,float]] :
+    def functional_form(self, time:np.ndarray, param_values:typing.Dict[str,stats.rv_continuous]) -> typing.Tuple[np.ndarray, typing.Dict[str,float]] :
         """To be supplied by the user. This function provides the functional form to generate a signal given a time array. It must take time and a dictionary of parameters as positional arguments, and return a tuple containing the flux array as the first argument and a dictionary with the selected parameter values as the second."""
+        # calculate any values needed basedon those in the param_values dict
+        
+        # delete non-kwarg parameters
+
+        # caclulate the flux on the time array
         raise NotImplementedError
 
 
@@ -295,20 +300,23 @@ class ButterpyTSGenerator(TSGenerator):
         A: stats.Normal
             
         """
+        # define the "default" case
         self.name = name
         self.params = {
             'butterfly': True, # make two separate classes for True and False for this
-            'activity_rate': 1, #stats.uniform(loc=.05, scale=.2),
-            'cycle_length': 1, #stats.uniform(loc=80, scale=10),
-            'cycle_overlap': 1, #MixtureModel([stats.truncexpon(b=5, scale=.1), stats.truncnorm(loc=0, scale=.3, a=0, b=5/3)]),
-            'decay_time': 1, #MixtureModel([stats.uniform(loc=0, scale=0.0), stats.uniform(loc=np.pi, scale=0.0)]), 
-            'max_ave_lat': 1, #stats.lognorm(s=1., loc=.3, scale=4),
-            'min_ave_lat': 1, #MixtureModel([stats.uniform(loc=1.2, scale=.8), stats.uniform(loc=1.2, scale=.8), stats.truncnorm(loc=2, scale=.12, a=-5, b=0)]),
+            'activity_rate': 1, #???
+            'cycle_length': stats.loguniform(loc=1, scale=39), #1–40 yr	Log-uniform, stats.loguniform(loc=1, scale=40),
+            'cycle_overlap': 1, #0.1 yr–Tcycle 	Log-uniform, stats.loguniform(loc=0.1, scale=Tcycle)
+            'decay_time': 1, #??? different from decay_timescale? 
+            'min_ave_lat': stats.uniform(loc=0, scale=40), #0°–40°	Uniform
+            # 'max_ave_lat': 1, #min_lat+5 – 80 °	Uniform, stats.uniform(loc=min_lat+5, scale=80-min_lat+5)
             'alpha_med': 1, #stats.uniform(loc=0, scale=1),   
             'period': 1, #stats.uniform(loc=0, scale=1),   
             'incl': stats.uniform(loc=0, scale=1), #later transform with sin^2i,   
-            'decay_timescale': 1, #stats.uniform(loc=0, scale=1),   
-            'diffrot_shear': 1, #stats.uniform(loc=0, scale=1)   
+            'decay_timescale': 1, #1–10	Log-uniform, stats.loguniform(loc=1, scale=10),   
+            'diffrot_shear': 1, #stats.uniform(loc=0, scale=1), 
+            'tsim': 30,
+            'tstart': 0   
         }
         
         # loop through and assign the parameters to class variables
@@ -317,30 +325,50 @@ class ButterpyTSGenerator(TSGenerator):
             # setattr(self, key, trc.convert_to_distribution(value))
         pass
 
+        # populate the parameters that depend on others
+        max_ave_lat_lowerbound = 5+self.params['max_ave_lat']
+        self.params['max_ave_lat'] = stats.uniform(loc=max_ave_lat_lowerbound, scale=80-max_ave_lat_lowerbound)       #min_lat+5 – 80, uniform
+
     def __repr__(self):
-        return "EclipsingBinaryTSGenerator"
-        
-    def generate_signal(self, time:np.ndarray, param_values:typing.Dict[str,stats.rv_continuous]=None) -> np.ndarray:
-        """Add."""
-        if param_values is None:
-            # sample the distributions
-            param_values = self.sample()
+        return "ButterpyTSGenerator"
 
-        # calculate f_c, f_s, and any other calculable values
-        incl = trc.convert_to_incl(param_values['incl'])
-        
-        ecc = param_values['ecc']
-        om = param_values['om']
-        param_values['f_c'] = np.sqrt(ecc)*np.cos(om)
-        param_values['f_s'] = np.sqrt(np.abs(ecc - param_values['f_c']**2))
-        param_values['t_zero'] = param_values['t_zero'] * param_values['period']
+    def functional_form(self, time:np.ndarray, param_values:typing.Dict[str,float]) -> typing.Tuple[np.ndarray, typing.Dict[str,float]] :
+        """To be supplied by the user. This function provides the functional form to generate a signal given a time array. It must take time and a dictionary of parameters as positional arguments, and return a tuple containing the flux array as the first argument and a dictionary with the selected parameter values as the second."""
 
+        # if param_values is None:
+        #     # sample the distributions
+        #     param_values = self.sample()
+
+        # calculate any calculable values
+        # incl = trc.convert_to_incl(param_values['incl'])
+        
         # delete non-kwarg parameters
-        del param_values['ecc']
-        del param_values['om']
+        # del param_values['ecc']
+
+        # set up regions
+        star = bp.regions(
+            butterfly=param_values['butterly'], 
+            activity_rate=param_values['activity_rate'],   # times solar rate
+            cycle_length=param_values['cycle_length'], 
+            cycle_overlap=param_values['cycle_overlap'],   # 0 is pole on
+            decay_time=(param_values['period']*15),
+            max_ave_lat=param_values['max_ave_lat'], 
+            min_ave_lat=param_values['min_ave_lat'],
+            alpha_med=param_values['alpha_med'],
+            tsim=param_values['tsim'],
+            tstart=param_values['tstart']
+        )
+        spots = bp.Spots(
+            star, 
+            alpha_med=param_values['alpha_med'], 
+            period=param_values['period'],
+            incl=param_values['incl'], 
+            decay_timescale=param_values['decay_timescale'], 
+            diffrot_shear=param_values['diffrot_shear']
+        )
 
         # calculate the flux
-        flux = ellc.lc(time, **param_values)
+        flux = flux = 1 + spots.calc(time)
         return flux, param_values
 
    
