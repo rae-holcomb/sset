@@ -18,7 +18,7 @@ import astropy.wcs as wcs
 # from scipy import ndimage
 import typing
 
-import trc_funcs as trc
+import sset.trc_funcs as trc
 
 class Field():
     """Creates an array that 

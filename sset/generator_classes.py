@@ -10,7 +10,7 @@ import butterpy as bp
 import ellc
 import typing
 from scipy import stats
-import trc_funcs as trc
+import sset.trc_funcs as trc
 # import PRF
 
 # import eleanor
@@ -49,66 +49,6 @@ class MixtureModel(stats.rv_continuous):
         submodel_samples = [submodel.rvs(size=size) for submodel in self.submodels]
         rvs = np.choose(submodel_choices, submodel_samples)
         return rvs
-
-# class FunctionSelector:
-class FunctionSelector():
-    """Used to select what functions get inputed.
-    TO DO: restrict function input types.
-    The generators list should be [obj:TSGenerator, weight:float]"""
-    def __init__(self, generators: typing.List[typing.Tuple[TSGenerator, float]] = None):
-    # def __init__(self, generators: list[tuple[TSGenerator, float]] = None):
-        self.generators = {}
-        self.weights = {}
-        
-        if generators is not None:
-            for item in generators:
-                self.generators[item[0].name] = item[0]
-                self.weights[item[0].name] = item[1]
-        # self.weights = {}
-
-    def __str__(self) -> str:
-        output = ''
-        for key in self.generators.keys():
-            output += 'Name: ' + key + ', Weight: ' + str(self.weights[key]) + '\n'
-        return output
-    
-    def print_verbose(self) -> str:
-        """Prints out a long version, with all the functions and their kwargs listed."""
-        raise NotImplementedError
-
-    def add_generator(self, generator:TSGenerator, weight:float) -> None:
-        """Adds a function to the options which can be selected.
-        TO DO: restrict function input types."""
-        # self.generators[name] = (generator, weight)
-        self.generators[generator.name] = generator
-        self.weights[generator.name] = weight
-
-    def delete_generator(self, name:str) -> None:
-        """Deletes a function from the selection options."""
-        del self.generators[name]
-        # del self.weights[name]
-
-    def update_weight(self, name:str, weight:float) -> None:
-        """Updates the weight on a given generator"""
-        self.generators[name] = (self.generators[name][0], weight)
-
-    def select_generator(self) -> TSGenerator:
-        # (OLD) selected_generator = random.choices(list(zip(*self.funcs.values()))[0], weights=list(zip(*self.funcs.values()))[1])
-        keys = list(self.weights.keys())
-        selected_key = random.choices(keys, weights=[self.weights[key] for key in keys], k=1)[0]
-        return selected_key
-    
-    def instantiate_function(self, time:np.ndarray, **kwargs) -> typing.Tuple[np.ndarray, typing.Dict]:
-        """Add."""
-        # pick what type of function
-        selected_key = self.select_generator()
-        # print(selected_key)
-
-        # apply the function to the time array and return the flux and the selected args
-        # print(type(selected_key))
-        # func = self.funcs[selected_key][0]
-        flux, params = self.generators[selected_key].generate_signal(time, **kwargs)
-        return selected_key, flux, params
 
 # @dataclass
 class TSGenerator():
@@ -202,6 +142,65 @@ class TSGenerator():
         # caclulate the flux on the time array
         raise NotImplementedError
 
+# class FunctionSelector:
+class FunctionSelector():
+    """Used to select what functions get inputed.
+    TO DO: restrict function input types.
+    The generators list should be [obj:TSGenerator, weight:float]"""
+    def __init__(self, generators: typing.List[typing.Tuple[TSGenerator, float]] = None):
+    # def __init__(self, generators: list[tuple[TSGenerator, float]] = None):
+        self.generators = {}
+        self.weights = {}
+        
+        if generators is not None:
+            for item in generators:
+                self.generators[item[0].name] = item[0]
+                self.weights[item[0].name] = item[1]
+        # self.weights = {}
+
+    def __str__(self) -> str:
+        output = ''
+        for key in self.generators.keys():
+            output += 'Name: ' + key + ', Weight: ' + str(self.weights[key]) + '\n'
+        return output
+    
+    def print_verbose(self) -> str:
+        """Prints out a long version, with all the functions and their kwargs listed."""
+        raise NotImplementedError
+
+    def add_generator(self, generator:TSGenerator, weight:float) -> None:
+        """Adds a function to the options which can be selected.
+        TO DO: restrict function input types."""
+        # self.generators[name] = (generator, weight)
+        self.generators[generator.name] = generator
+        self.weights[generator.name] = weight
+
+    def delete_generator(self, name:str) -> None:
+        """Deletes a function from the selection options."""
+        del self.generators[name]
+        # del self.weights[name]
+
+    def update_weight(self, name:str, weight:float) -> None:
+        """Updates the weight on a given generator"""
+        self.generators[name] = (self.generators[name][0], weight)
+
+    def select_generator(self) -> TSGenerator:
+        # (OLD) selected_generator = random.choices(list(zip(*self.funcs.values()))[0], weights=list(zip(*self.funcs.values()))[1])
+        keys = list(self.weights.keys())
+        selected_key = random.choices(keys, weights=[self.weights[key] for key in keys], k=1)[0]
+        return selected_key
+    
+    def instantiate_function(self, time:np.ndarray, **kwargs) -> typing.Tuple[np.ndarray, typing.Dict]:
+        """Add."""
+        # pick what type of function
+        selected_key = self.select_generator()
+        # print(selected_key)
+
+        # apply the function to the time array and return the flux and the selected args
+        # print(type(selected_key))
+        # func = self.funcs[selected_key][0]
+        flux, params = self.generators[selected_key].generate_signal(time, **kwargs)
+        return selected_key, flux, params
 
 # subclass from TSGenerator
 class SineTSGenerator(TSGenerator):

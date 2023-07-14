@@ -1,7 +1,12 @@
+# import sys
+# sys.path.append('../sset/')
+
 import numpy as np
 import lightkurve as lk
 import math
-import trc_funcs as trc
+import sset.trc_funcs as trc
+import sset.field as Field
+import sset.generator_classes as gen
 from scipy import stats
 
 # FIX THESE AND MAKE THEM REAL TESTS LATER
@@ -61,8 +66,8 @@ def convert_to_distribution_test():
     # check that the numbers come out right
     a = -1.2
     b = 300
-    assert(convert_to_distribution(a).rvs() == a)
-    assert(convert_to_distribution(b).rvs() == b)
+    assert(trc.convert_to_distribution(a).rvs() == a)
+    assert(trc.convert_to_distribution(b).rvs() == b)
 
 def convert_aperture_mask():
     # test to make sure the output has the mask in the right place
