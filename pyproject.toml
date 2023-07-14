@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "tess-sim"
+name = "sset"
 version = "0.1.0"
 description = "A tool for generating simulated cut outs of TESS target pixel files."
 authors = ["rae-holcomb <raeholcomb15@gmail.com>"]
