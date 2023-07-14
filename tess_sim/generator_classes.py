@@ -304,18 +304,16 @@ class ButterpyTSGenerator(TSGenerator):
         self.name = name
         self.params = {
             'butterfly': True, # make two separate classes for True and False for this
-            'activity_rate': 1, #???
-            'cycle_length': stats.loguniform(loc=1, scale=39), #1–40 yr	Log-uniform, stats.loguniform(loc=1, scale=40),
-            'cycle_overlap': 1, #0.1 yr–Tcycle 	Log-uniform, stats.loguniform(loc=0.1, scale=Tcycle)
-            'decay_time': 1, #??? different from decay_timescale? 
+            'activity_rate': stats.loguniform(.1, 10), #0.1–10× solar	Log-uniform
+            'cycle_length': stats.loguniform(1, 40), #1–40 yr	Log-uniform, stats.loguniform(1, 40),
+            'decay_time': 1, # keep constant 
             'min_ave_lat': stats.uniform(loc=0, scale=40), #0°–40°	Uniform
-            # 'max_ave_lat': 1, #min_lat+5 – 80 °	Uniform, stats.uniform(loc=min_lat+5, scale=80-min_lat+5)
-            'alpha_med': 1, #stats.uniform(loc=0, scale=1),   
-            'period': 1, #stats.uniform(loc=0, scale=1),   
+            'alpha_med': (3*3e-4), #keep constant   
+            'period': stats.uniform(loc=.1, scale=99.9), #0.1–100 days	uniform, stats.uniform(loc=0, scale=1),   
             'incl': stats.uniform(loc=0, scale=1), #later transform with sin^2i,   
-            'decay_timescale': 1, #1–10	Log-uniform, stats.loguniform(loc=1, scale=10),   
-            'diffrot_shear': 1, #stats.uniform(loc=0, scale=1), 
-            'tsim': 30,
+            'decay_timescale': stats.loguniform(1, 10), #1–10	Log-uniform, stats.loguniform(1, 10),   
+            'diffrot_shear': 1, #piecewise function, 
+            'tsim': 365*5,
             'tstart': 0   
         }
         
@@ -325,9 +323,13 @@ class ButterpyTSGenerator(TSGenerator):
             # setattr(self, key, trc.convert_to_distribution(value))
         pass
 
-        # populate the parameters that depend on others
-        max_ave_lat_lowerbound = 5+self.params['max_ave_lat']
-        self.params['max_ave_lat'] = stats.uniform(loc=max_ave_lat_lowerbound, scale=80-max_ave_lat_lowerbound)       #min_lat+5 – 80, uniform
+        # NOTE: NEED TO MOVE THESE PARTS OVER TO SAMPLE
+        # # populate the parameters that depend on others
+        # max_ave_lat_lowerbound = 5+self.params['min_ave_lat'].a
+        # self.params['max_ave_lat'] = stats.uniform(loc=max_ave_lat_lowerbound, scale=80-max_ave_lat_lowerbound)       #min_lat+5 – 80, uniform
+        
+        self.params['cycle_overlap'] = stats.loguniform(0.1, params['cycle_length']) #0.1 yr–Tcycle 	Log-uniform, 
+
 
     def __repr__(self):
         return "ButterpyTSGenerator"
@@ -351,7 +353,7 @@ class ButterpyTSGenerator(TSGenerator):
             activity_rate=param_values['activity_rate'],   # times solar rate
             cycle_length=param_values['cycle_length'], 
             cycle_overlap=param_values['cycle_overlap'],   # 0 is pole on
-            decay_time=(param_values['period']*15),
+            decay_time=(param_values['decay_time']),
             max_ave_lat=param_values['max_ave_lat'], 
             min_ave_lat=param_values['min_ave_lat'],
             alpha_med=param_values['alpha_med'],
