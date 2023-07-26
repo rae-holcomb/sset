@@ -18,7 +18,10 @@ import astropy.wcs as wcs
 # from scipy import ndimage
 import typing
 
-import sset.trc_funcs as trc
+try:
+    import sset.trc_funcs as trc
+except: 
+    import trc_funcs as trc
 
 class Field():
     """Creates an array that 
@@ -284,4 +287,25 @@ class Field():
         out_file = out_file * 0
         out_file += self.field
         return out_file
-    
+
+
+class MultiSectorField:
+    """takes in multiple field objects and populates them with continuous variability functions.
+
+    orig_tpf_arr - array of cutouts to base the images on.
+    source_catalog - must contain all sources that appear in all sectors.
+    pos_time_arr, pos_corr1_arr, pos_corr2_arr - 2d arrays with the positional drift data. First dimension should be the same as the number of sectors you're creating."""
+    def __init__(self, 
+        orig_tpf_arr: typing.List[lk.TessTargetPixelFile],
+        source_catalog: astropy.table,
+        bkg_polyorder: int, 
+        bkg_variability_generator: typing.Callable=None,
+        noise_func: typing.Callable=None, 
+        noise_coeffs: np.array=None,
+        pos_time_arr=None, pos_corr1_arr=None, pos_corr2_arr=None,
+        id: int=None,
+        add_offset=False,
+        offset_scale: float=0.0125,
+        buffer: int=3
+        ):
+        return

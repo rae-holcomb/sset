@@ -10,7 +10,12 @@ import butterpy as bp
 import ellc
 import typing
 from scipy import stats
-import sset.trc_funcs as trc
+
+try:
+    import sset.trc_funcs as trc
+except:
+    import trc_funcs as trc
+
 # import PRF
 
 # import eleanor
@@ -292,6 +297,7 @@ class ButterpyTSGenerator(TSGenerator):
         Rotating stars using the Butterpy package. Has several parameter distributions set by default, as noted below. Only use the params input to modify from this default.
 
         NOTE: Currently, this only works in python 3.8.
+        NOTE: We also had to overwrite the sample() function, in order to be able to modify the distributions of certain parameters based on the selected values of other parameters.
 
         Parameters
         ----------
@@ -305,10 +311,12 @@ class ButterpyTSGenerator(TSGenerator):
             'butterfly': True, # make two separate classes for True and False for this
             'activity_rate': stats.loguniform(.1, 10), #0.1–10× solar	Log-uniform
             'cycle_length': stats.loguniform(1, 40), #1–40 yr	Log-uniform, stats.loguniform(1, 40),
+            'cycle_overlap_lowerbound': 0.1,  # keep constant
             'decay_time': 1, # keep constant 
             'min_ave_lat': stats.uniform(loc=0, scale=40), #0°–40°	Uniform
+            'max_ave_lat_upperbound': 80,   # this gets populated in sample()
             'alpha_med': (3*3e-4), #keep constant   
-            'period': stats.uniform(loc=.1, scale=99.9), #0.1–100 days	uniform, stats.uniform(loc=0, scale=1),   
+            'period': stats.uniform(loc=.1, scale=99.9), #0.1–100 days	uniform  
             'incl': stats.uniform(loc=0, scale=1), #later transform with sin^2i,   
             'decay_timescale': stats.loguniform(1, 10), #1–10	Log-uniform, stats.loguniform(1, 10),   
             'diffrot_shear': 1, #piecewise function, 
@@ -322,16 +330,33 @@ class ButterpyTSGenerator(TSGenerator):
             # setattr(self, key, trc.convert_to_distribution(value))
         pass
 
-        # NOTE: NEED TO MOVE THESE PARTS OVER TO SAMPLE
-        # # populate the parameters that depend on others
-        # max_ave_lat_lowerbound = 5+self.params['min_ave_lat'].a
-        # self.params['max_ave_lat'] = stats.uniform(loc=max_ave_lat_lowerbound, scale=80-max_ave_lat_lowerbound)       #min_lat+5 – 80, uniform
-        
-        self.params['cycle_overlap'] = stats.loguniform(0.1, params['cycle_length']) #0.1 yr–Tcycle 	Log-uniform, 
-
 
     def __repr__(self):
         return "ButterpyTSGenerator"
+    
+    def sample(self) -> typing.Dict[str, float]:
+        """Pulls a value from each parameter distribution."""
+        # iterate over the parameters and pull one value from each distribution
+        param_values = self.params.copy()
+        # del param_values['name']
+        # del param_values['params']
+        for key, distr in param_values.items():
+            if isinstance(distr, (float, int)):
+                param_values[key] = distr
+            else:
+                param_values[key] = distr.rvs() 
+
+        # calculate and sample the parameter values whose distributions depend on other parameters
+
+        # max average spot latitude, min_lat+5 – 80, uniform
+        max_ave_lat_lowerbound = 5 + param_values['min_ave_lat']  # retrieve the sampled lower bound
+        lat_scale = param_values['max_ave_lat_upperbound'] - max_ave_lat_lowerbound 
+        param_values['max_ave_lat'] = stats.uniform(loc=max_ave_lat_lowerbound, scale=lat_scale).rvs()
+
+        # cycle overlap, Log uniform 0.1 - T_cycle in years
+        param_values['cycle_overlap'] = stats.loguniform(self.params['cycle_overlap_lowerbound'], param_values['cycle_length']).rvs()
+
+        return param_values
 
     def functional_form(self, time:np.ndarray, param_values:typing.Dict[str,float]) -> typing.Tuple[np.ndarray, typing.Dict[str,float]] :
         """To be supplied by the user. This function provides the functional form to generate a signal given a time array. It must take time and a dictionary of parameters as positional arguments, and return a tuple containing the flux array as the first argument and a dictionary with the selected parameter values as the second."""
@@ -348,7 +373,7 @@ class ButterpyTSGenerator(TSGenerator):
 
         # set up regions
         star = bp.regions(
-            butterfly=param_values['butterly'], 
+            butterfly=param_values['butterfly'], 
             activity_rate=param_values['activity_rate'],   # times solar rate
             cycle_length=param_values['cycle_length'], 
             cycle_overlap=param_values['cycle_overlap'],   # 0 is pole on

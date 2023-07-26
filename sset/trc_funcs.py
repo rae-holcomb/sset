@@ -18,7 +18,10 @@ import astropy.table
 from scipy import ndimage
 from scipy.optimize import curve_fit
 
-import sset.field as Field
+try:
+    import sset.field as Field
+except:
+    import field as Field
 
 # helper functions
 
