@@ -286,11 +286,6 @@ class EclipsingBinaryTSGenerator(TSGenerator):
         return flux, param_values
 
 
-# NOTE TO SELF
-# Need to adjust the Butterpy and EB classes so that the param dictionary
-# overwrites only the specific variables fed into the class
-
-
 class ButterpyTSGenerator(TSGenerator):
     def __init__(self, name, params:typing.Dict[str,stats.rv_continuous]={}) -> None:
         """
@@ -308,7 +303,7 @@ class ButterpyTSGenerator(TSGenerator):
         # define the "default" case
         self.name = name
         self.params = {
-            'butterfly': True, # make two separate classes for True and False for this
+            'butterfly': stats.uniform(loc=-1, scale=2), # will later cast this into a boolean
             'activity_rate': stats.loguniform(.1, 10), #0.1–10× solar	Log-uniform
             'cycle_length': stats.loguniform(1, 40), #1–40 yr	Log-uniform, stats.loguniform(1, 40),
             'cycle_overlap_lowerbound': 0.1,  # keep constant
@@ -346,6 +341,12 @@ class ButterpyTSGenerator(TSGenerator):
             else:
                 param_values[key] = distr.rvs() 
 
+        # cast the butterfly keyword into a boolean
+        if param_values['butterfly'] < 0:
+            param_values['butterfly'] = False
+        else:
+            param_values['butterfly'] = True
+
         # calculate and sample the parameter values whose distributions depend on other parameters
 
         # max average spot latitude, min_lat+5 – 80, uniform
@@ -360,16 +361,6 @@ class ButterpyTSGenerator(TSGenerator):
 
     def functional_form(self, time:np.ndarray, param_values:typing.Dict[str,float]) -> typing.Tuple[np.ndarray, typing.Dict[str,float]] :
         """To be supplied by the user. This function provides the functional form to generate a signal given a time array. It must take time and a dictionary of parameters as positional arguments, and return a tuple containing the flux array as the first argument and a dictionary with the selected parameter values as the second."""
-
-        # if param_values is None:
-        #     # sample the distributions
-        #     param_values = self.sample()
-
-        # calculate any calculable values
-        # incl = trc.convert_to_incl(param_values['incl'])
-        
-        # delete non-kwarg parameters
-        # del param_values['ecc']
 
         # set up regions
         star = bp.regions(
@@ -393,8 +384,8 @@ class ButterpyTSGenerator(TSGenerator):
             diffrot_shear=param_values['diffrot_shear']
         )
 
-        # calculate the flux
-        flux = flux = 1 + spots.calc(time)
+        # calculate the flux over a longer time than you need, allow one year for burn in
+        time0 = time - time[0] + 365
+        flux = 1 + spots.calc(time0)
         return flux, param_values
 
-   

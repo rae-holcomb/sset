@@ -115,7 +115,7 @@ class Field():
             self.pos_corr = np.zeros([2,len(self.orig_tpf)])
 
         # fit a background and add it to the field
-        self.bkg = self.fit_bkg(polyorder=bkg_polyorder)
+        self.bkg = trc.fit_bkg(self.orig_tpf, polyorder=bkg_polyorder)
 
         # Apply a noise model. May want to rerun this after adding in sources.
         
@@ -164,15 +164,16 @@ class Field():
             if random_signal:
                 selected_function, signal, params = self.bkg_variability_generator.instantiate_function(self.orig_tpf.time.value)
                 # record what function was used
-                self.source_catalog['signal_function'] = selected_function
+                self.source_catalog['signal_function'][idx] = selected_function
             else:
                 signal, params = signal_func.generate_signal(self.orig_tpf.time.value)
                 # record what function was used
-                self.source_catalog['signal_function'] = signal_func.name
+                self.source_catalog['signal_function'][idx] = signal_func.name
+                print('not a random signal')
 
             # update the class variables to reflect the inject signal
             self.signals1D[source_ind,:] = signal
-            self.source_catalog['signal_params'] = params
+            self.source_catalog['signal_params'][idx] = params
             
 
             # scale by the flux and apply offset
