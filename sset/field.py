@@ -288,7 +288,22 @@ class Field():
         out_file = out_file * 0
         out_file += self.field
         return out_file
+    
+    def nemesis_lc_extraction(self, threshold, cadence,
+            verbose=True,
+            use_SPOC_aperture=True,
+            use_centroid=False,
+            use_circ=False,
+            use_sources_in_aperture=False):
 
+        tpf = self.to_tpf()
+        sap_lc = trc.nemesis_SAP(tpf,threshold,cadence,
+                    verbose=verbose,
+                    use_SPOC_aperture=use_SPOC_aperture,
+                    use_centroid=use_centroid,
+                    use_circ=use_circ,
+                    use_sources_in_aperture=use_sources_in_aperture)
+        return sap_lc
 
 class MultiSectorField:
     """takes in multiple field objects and populates them with continuous variability functions.

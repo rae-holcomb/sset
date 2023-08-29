@@ -594,12 +594,30 @@ def centroid_quadratic(data, mask, reference_pixel):
     return np.array(xx + xm), np.array(yy + ym)
 
 
-def SAP(ID,Sector,cutoutsize,hdu,quality_mask,threshold,
-        cadence,reference_pixel,verbose,fmt,scale,flux_unit,mission,
+def nemesis_SAP(tpf,threshold,cadence,
+        verbose=True,
         use_SPOC_aperture=False,
-        use_centroid=False,use_circ=True,use_sources_in_aperture=False):
-    import numpy as np
+        use_centroid=False,use_circ=True,
+        use_sources_in_aperture=False):
+    """Adapted from code provided by Dax Feliz, which was adapted from the NEMESIS pipeline."""
+    # pull out useful variables
+    hdu = tpf.hdu
     quality_mask = hdu[1].data['QUALITY']!=0
+    fmt = tpf.time.format 
+    scale = tpf.time.scale
+    flux_unit = tpf.flux.unit
+    mission = tpf.mission
+    cutoutsize = max(tpf.shape[1:])
+
+    # get the reference pixel
+    if (cadence=='short') or (cadence=='fast') or (cadence=='2 minute') or (cadence=='20 second') :
+        x=hdu[1].header['1CRPX4']-1 # in this case, TPFs are already centered
+        y=hdu[1].header['2CRPX4']-1 # subtracting by one places coord on center, from testing they're always off by 1...
+    if (cadence=='long') or (cadence=='30 minute') or (cadence=='10 minute'):
+        x=hdu[1].header['1CRPX4']-0.5 #subtracting by 0.5 places coord on center of pixel
+        y=hdu[1].header['2CRPX4']-0.5 #otherwise it's on corner of pixel
+    reference_pixel=[x,y]
+
     median_image = np.nanmedian(hdu[1].data['FLUX'][~quality_mask], axis=0)
     ###
     ###
@@ -676,14 +694,12 @@ def SAP(ID,Sector,cutoutsize,hdu,quality_mask,threshold,
     #
     Npixbkg = len(np.where(bkg_mask == True)[0])
     Npixaper= len(np.where(pix_mask == True)[0])
-    #
+    
     bkgFlux = bkgFlux/Npixbkg #normalize background
-    #
+    
     rawsap_flux = rawflux - (bkgFlux * Npixaper)
     sap_flux = rawsap_flux #/ np.nanmedian(rawsap_flux)
-    #    
-    #
-    #
+    
     nanmask = np.where(np.isfinite(sap_flux)==True)[0]
     #print('len SAP nanmask',len(nanmask))
     error = np.abs( sap_flux / np.nanmedian(np.nansum(sap_flux)/np.nanmedian(sap_flux)))
