@@ -6,6 +6,7 @@ import math
 import matplotlib.pyplot as plt
 import copy
 from scipy import stats
+import warnings
 
 
 import PRF
@@ -145,52 +146,92 @@ class Field():
 
         return [pc1, pc2]
 
-    def add_signal(self, idx: int, random_signal=True, signal_func=None, **kwargs):
+    def add_premade_1D_signal(self, idx: int, premade_signal: np.array, params: typing.Dict={}, signal_func=None, **kwargs):
+        """
+        Use to add a signal to a star if you have already generated the flux array, which must be same length as the time array.
+
+        idx - the index corresponding to the stellar source you are injecting a signal into
+        signal_func - the TSGenerator object that can be used to recreate this signal
+        params - the dictionary of parameters to be passed to the signal_func to recreate this signal
+        """
+        if len(premade_signal) != len(self.time):
+            warnings.warn('Provided signal is not the same length as the time array.')
+
+        # update the class variables to reflect the injected signal
+        self.signals1D[idx,:] = premade_signal
+        self.source_catalog['signal_function'][idx] = signal_func
+        self.source_catalog['signal_params'][idx] = params
+        pass
+
+
+    def add_1D_signal(self, idx: int, random_signal=True, signal_func=None, **kwargs):
         """NEW VERSION
-        Adds a source with a given flux and position to the Field.
+        Adds a source with a given flux and position to the signals1D array.
+
         signal - a 1d array that gives the behavior of the source over time, normalized to 1. Note that if random_signal=False then a signal_func MUST be provided.
         
         Inputs:
             idx - the index (or array of indices) in the source catalog of the source
             signal_func - (callable) the function to be used to generate the signal
-            random_signal - (bool) if true, will use the FunctionSelector to generate a random signal"""
+            random_signal - (bool) if true, will use the FunctionSelector to generate a random signal
+            """
         if type(idx) == int:
             idx = np.array([idx])
 
         # add sources to the field, weighted by Tmag
         for source_ind in idx:
-        # for source_ind in range(1,2):
             row = self.source_catalog[source_ind]
+            
             # generate signal
             if random_signal:
+                # if requested, use the FunctionSelector to generate a random signal
                 selected_function, signal, params = self.bkg_variability_generator.instantiate_function(self.orig_tpf.time.value)
                 # record what function was used
                 self.source_catalog['signal_function'][idx] = selected_function
             else:
+                # otherwise, use the provided TSGenerator and params
                 signal, params = signal_func.generate_signal(self.orig_tpf.time.value)
                 # record what function was used
                 self.source_catalog['signal_function'][idx] = signal_func.name
-                print('not a random signal')
+                # print('not a random signal')
 
             # update the class variables to reflect the inject signal
             self.signals1D[source_ind,:] = signal
             self.source_catalog['signal_params'][idx] = params
-            
+        pass
 
-            # scale by the flux and apply offset
-            signal_scaled = row['Tflux'] * self.signals1D[source_ind,:] * row['offset']
+    def convert_to_2D(self, idx: int):
+        """Helper function that takes a 1D timeseries and smears it out into 2D using the appropriate PRF, then returns the 2D array. Does NOT modify the state of the Field object at all.
 
-            # resample to make the prf for the source
-            # source_prf = self.prf.locate(pix1[source_ind],pix2[source_ind], self.shape)
-            try:
-                source_prf = [self.prf.locate(row['pix1']+self.pos_corr[0][i], row['pix2']+self.pos_corr[1][i], self.shape) for i in range(len(self.orig_tpf))]
-            except:
-                print("Couldn't find PRF for target index " + str(source_ind))
+        Inputs:
+            idx - (int) the index of the source to be smeared.
+        """
+        row = self.source_catalog[idx]
 
-            # apply the prf to the signl and add to image
-            signal2D = np.multiply(signal_scaled[:, np.newaxis, np.newaxis], source_prf)
+        # scale by the flux and apply offset
+        signal_scaled = row['Tflux'] * self.signals1D[idx,:] * row['offset']
 
-            # add to the signals2D array
+        # resample to make the prf for the source
+        # source_prf = self.prf.locate(pix1[idx],pix2[idx], self.shape)
+        try:
+            source_prf = [self.prf.locate(row['pix1']+self.pos_corr[0][i], row['pix2']+self.pos_corr[1][i], self.shape) for i in range(len(self.orig_tpf))]
+        except:
+            print("Couldn't find PRF for target index " + str(idx))
+
+        # apply the prf to the signl and add to image
+        signal2D = np.multiply(signal_scaled[:, np.newaxis, np.newaxis], source_prf)
+
+        return signal2D
+
+    def convert_field_to_2D(self):
+        """
+        Once all desired 1D signals have been generated, call this function to use the PRF to smear them into 2D.
+        """
+        # clear the signals2D matrix
+        self.signals2D = np.zeros(self.orig_tpf.shape)
+
+        for source_ind in range(len(self.source_catalog)):
+            signal2D = self.convert_to_2D(source_ind)
             self.signals2D = np.add(self.signals2D, signal2D)
         pass
 
