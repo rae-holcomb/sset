@@ -14,6 +14,7 @@ import astropy
 from astroquery.mast import Catalogs
 import astropy.units as u
 import astropy.wcs as wcs
+from astropy import table
 # from astropy.stats import sigma_clip
 # from scipy import ndimage
 import typing
@@ -58,6 +59,12 @@ class Field():
         self.buffer = buffer
         self.offset_scale = offset_scale
 
+        # set the id number
+        if id is not None:
+            self.id = id 
+        else:
+            self.id = np.random.randint(100000000,999999999) # assign a random ID number
+
         # define a table that will track all the values used to make this field
         # self.sources = source_catalog.copy()['ID', 'ra', 'dec', 'pmRA', 'pmDEC', 'Tmag', 'GAIA', 'contratio', 'dstArcSec']
         # add columns for the Tmag in flux units (Tflux), pixel positions, variability function, params, and offset
@@ -95,12 +102,6 @@ class Field():
             self.source_catalog['offset'] = self.generate_offset(size=len(self.source_catalog))
         else:
             self.source_catalog['offset'] = 1.
-
-        # set the id number
-        if id is not None:
-            self.id = id 
-        else:
-            self.id = np.random.randint(100000000,999999999) # assign a random ID number
 
         # grab the prf
         self.prf = PRF.TESS_PRF(self.cam,self.ccd,self.sector,
@@ -271,10 +272,13 @@ class Field():
         self.noise = np.random.normal(0,self.noise_func(logflux,self.noise_coeffs))
         pass
 
-    def generate_offset(self, size=None) -> float:
-        """Generates a multiplicative offset for each source in the field. Currently, just using a gaussian centered on 1 with a sigma of .0125, but maybe make this more complicated later to reflect empirical offsets for each sector."""
-        return np.random.normal(loc=1., scale=self.offset_scale, size=size)
-
+    def generate_offset(self, offset_scale=None, size=None) -> float:
+        """Generates a multiplicative offset for each source in the field. Currently, just using a gaussian centered on 1 with a sigma of .0125, but maybe make this more complicated later to reflect empirical offsets for each sector.
+        offset_scale - lets you overwrite the class-defined offset_scale"""
+        if offset_scale is not None:
+            return np.random.normal(loc=1., scale=offset_scale, size=size)
+        else:
+            return np.random.normal(loc=1., scale=self.offset_scale, size=size)
 
     def assemble(self):
         """Once the background, sources, and noise have been added, assembles them all into the field."""
@@ -305,23 +309,55 @@ class Field():
                     use_sources_in_aperture=use_sources_in_aperture)
         return sap_lc
 
-class MultiSectorField:
-    """takes in multiple field objects and populates them with continuous variability functions.
 
-    orig_tpf_arr - array of cutouts to base the images on.
-    source_catalog - must contain all sources that appear in all sectors.
-    pos_time_arr, pos_corr1_arr, pos_corr2_arr - 2d arrays with the positional drift data. First dimension should be the same as the number of sectors you're creating."""
+class MultiSectorField:
+    """Takes in multiple field objects and populates them with continuous variability functions.
+
+    field_arr - an array of Field objects that has been initialized but no further operations made to it.
+    source_catalog - 
+
+
+    tpf_arr - array of lightkurve TargetPixelFile objects. Only populated after calling self.to_tpf()
+    catalog_arr - super catalog containing all targets that appear in any sector
+    time - an array with all timestamps from all sectors
+    """
     def __init__(self, 
-        orig_tpf_arr: typing.List[lk.TessTargetPixelFile],
+        field_arr: typing.List[Field],
         source_catalog: astropy.table,
-        bkg_polyorder: int, 
-        bkg_variability_generator: typing.Callable=None,
-        noise_func: typing.Callable=None, 
-        noise_coeffs: np.array=None,
-        pos_time_arr=None, pos_corr1_arr=None, pos_corr2_arr=None,
-        id: int=None,
-        add_offset=False,
-        offset_scale: float=0.0125,
-        buffer: int=3
         ):
+        self.field_arr = field_arr
+        self.source_catalog = source_catalog
+
+        # define useful variables
+        self.tpf_arr = np.empty(len(self.field_arr)) # will only be populated after self.to_tpf() is called
+        self.time = np.concatenate([field.time for field in field_arr])
+
+        # add columns to the source catalog to keep track of the functions we're using to generate the variability
+        self.source_catalog['signal_function'] = None
+        self.source_catalog['signal_params'] = {}
+
+
+        # # create a super catalog that contains all targets from the source catalogs of all the sectors
+        # self.catalog_arr = table.unique(table.vstack([field.source_catalog for field in field_arr]), keys='ID')
+        
+        # background & offset is automatically populated for each field(I think), but remember to add in noise at the end!
+
+
+
+
         return
+    
+    def add_signal(self, targe_id: int, random_signal=True, signal_func=None, **kwargs):
+        """Generates a signal across the timestamps for all sectors, then adds them to the field."""
+        return
+    
+    def add_noise(self):
+        """Calls functions to calculate the empirical noise and offset for each field."""
+        for field in self.field_arr :
+            field.calc_empirical_noise()
+
+    def to_tpfs(self):
+        for ind in range(len(self.tpf_arr)):
+            self.tpf_arr[ind] = self.field_arr[i].to_tpf()
+
+        return self.tpf_arr

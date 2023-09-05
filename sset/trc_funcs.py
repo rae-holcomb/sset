@@ -719,8 +719,7 @@ def nemesis_SAP(tpf,threshold,cadence,
     error = u.Quantity(error, sap_flux.unit)
     print(sap_flux.unit,error.unit)
     SAP_LC = lk.LightCurve(time=rawtime,flux=sap_flux,
-                           flux_err=error)
-    SAP_LC.mission=mission
+                           flux_err=error, meta={'mission':mission})
     if verbose==True:
         print('RAW len check:', len(rawtime),len(sap_flux),len(error))
     return SAP_LC
