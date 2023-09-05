@@ -156,13 +156,13 @@ class Field():
         """
         if len(premade_signal) != len(self.time):
             warnings.warn('Provided signal is not the same length as the time array.')
+            return
 
         # update the class variables to reflect the injected signal
         self.signals1D[idx,:] = premade_signal
         self.source_catalog['signal_function'][idx] = signal_func
         self.source_catalog['signal_params'][idx] = params
         pass
-
 
     def add_1D_signal(self, idx: int, random_signal=True, signal_func=None, **kwargs):
         """NEW VERSION
@@ -323,6 +323,8 @@ class Field():
 
     def assemble(self):
         """Once the background, sources, and noise have been added, assembles them all into the field."""
+        self.convert_field_to_2D()
+        self.calc_empirical_noise()
         self.field = self.bkg + self.signals2D + self.noise
         pass
 
@@ -363,15 +365,18 @@ class MultiSectorField:
     time - an array with all timestamps from all sectors
     """
     def __init__(self, 
-        field_arr: typing.List[Field],
-        source_catalog: astropy.table,
-        ):
+                field_arr: typing.List[Field],
+                source_catalog: astropy.table,
+                bkg_variability_generator: typing.Callable=None,
+                ):
         self.field_arr = field_arr
         self.source_catalog = source_catalog
+        self.bkg_variability_generator = bkg_variability_generator
 
-        # define useful variables
-        self.tpf_arr = np.empty(len(self.field_arr)) # will only be populated after self.to_tpf() is called
-        self.time = np.concatenate([field.time for field in field_arr])
+        # # define useful variables
+        self.tpf_arr = [None] * len(self.field_arr) # will only be populated after self.to_tpf() is called
+        self.time = np.concatenate([fd.time for fd in field_arr])
+        self.signals1D = np.ones((len(self.source_catalog),len(self.time)))
 
         # add columns to the source catalog to keep track of the functions we're using to generate the variability
         self.source_catalog['signal_function'] = None
@@ -379,26 +384,95 @@ class MultiSectorField:
 
 
         # # create a super catalog that contains all targets from the source catalogs of all the sectors
-        # self.catalog_arr = table.unique(table.vstack([field.source_catalog for field in field_arr]), keys='ID')
+        # self.catalog_arr = table.unique(table.vstack([fd.source_catalog for fd in field_arr]), keys='ID')
         
         # background & offset is automatically populated for each field(I think), but remember to add in noise at the end!
 
 
-
-
         return
-    
+
+    def add_premade_1D_signal(self, idx: int, premade_signal: np.array, params: typing.Dict={}, signal_func=None, **kwargs):
+        """
+        Use to add a signal to a star if you have already generated the flux array, which must be same length as the time array.
+
+        idx - the index corresponding to the stellar source you are injecting a signal into
+        signal_func - the TSGenerator object that can be used to recreate this signal
+        params - the dictionary of parameters to be passed to the signal_func to recreate this signal
+        """
+        if len(premade_signal) != len(self.time):
+            warnings.warn('Provided signal is not the same length as the time array.')
+            return
+
+        # update the class variables to reflect the injected signal
+        self.signals1D[idx,:] = premade_signal
+        self.source_catalog['signal_function'][idx] = signal_func
+        self.source_catalog['signal_params'][idx] = params
+
+        # also update each individual field with the provided signal
+        for fd in self.field_arr:
+            # grab just the portion of the time series that shows up in that field
+            premade_signal_cut = premade_signal[(self.time >= min(fd.time)) & (self.time <= max(fd.time))]
+
+            # add and update params
+            fd.add_premade_1D_signal(idx, premade_signal_cut, params=params, signal_func=signal_func)
+        return
+
+    def add_1D_signal(self, idx: int, random_signal=True, signal_func=None, **kwargs):
+        """
+        Adds a source with a given flux and position to the signals1D array.
+
+        signal - a 1d array that gives the behavior of the source over time, normalized to 1. Note that if random_signal=False then a signal_func MUST be provided.
+        
+        Inputs:
+            idx - the index (or array of indices) in the source catalog of the source
+            signal_func - (callable) the function to be used to generate the signal
+            random_signal - (bool) if true, will use the FunctionSelector to generate a random signal
+            """
+        if type(idx) == int:
+            idx = np.array([idx])
+
+        # add sources to the field, weighted by Tmag
+        for source_ind in idx:
+            row = self.source_catalog[source_ind]
+            
+            # generate signal
+            if random_signal:
+                # if requested, use the FunctionSelector to generate a random signal
+                selected_function, signal, params = self.bkg_variability_generator.instantiate_function(self.time)
+                # record what function was used
+                self.source_catalog['signal_function'][idx] = selected_function
+            else:
+                # otherwise, use the provided TSGenerator and params
+                signal, params = signal_func.generate_signal(self.time)
+                # record what function was used
+                self.source_catalog['signal_function'][idx] = signal_func.name
+                # print('not a random signal')
+
+            # update the class variables to reflect the inject signal
+            self.signals1D[source_ind,:] = signal
+            self.source_catalog['signal_params'][idx] = params
+
+            # also update each individual field with the provided signal
+            for fd in self.field_arr:
+                # grab just the portion of the time series that shows up in that field
+                signal_cut = signal[(self.time >= min(fd.time)) & (self.time <= max(fd.time))]
+
+                # add and update params
+                fd.add_premade_1D_signal(idx, signal_cut, params=params, signal_func=signal_func)
+        pass
+
+
     def add_signal(self, targe_id: int, random_signal=True, signal_func=None, **kwargs):
         """Generates a signal across the timestamps for all sectors, then adds them to the field."""
         return
     
     def add_noise(self):
         """Calls functions to calculate the empirical noise and offset for each field."""
-        for field in self.field_arr :
-            field.calc_empirical_noise()
+        for fd in self.field_arr :
+            fd.calc_empirical_noise()
 
     def to_tpfs(self):
         for ind in range(len(self.tpf_arr)):
-            self.tpf_arr[ind] = self.field_arr[i].to_tpf()
+            self.tpf_arr[ind] = self.field_arr[ind].to_tpf()
 
         return self.tpf_arr
